@@ -1,20 +1,49 @@
 import { Request, Response, NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
+import { db } from '../config/db.js';
+import { users, priestProfiles, priestServices } from '../models/index.js';
 import { sendSuccess } from '../views/response.view.js';
 
-/**
- * [CONTROLLER] Priest Controller (Teammate Skeleton)
- * 
- * Responsibility: Priest public directory, profile management, service offerings, and slot availability.
- * Assigned to: Teammate (Priest Module)
- */
 export class PriestController {
   /**
    * GET /api/v1/priests
    */
   async searchPriests(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Query approved priests from DB with city, language, and specialization filters
-      sendSuccess(res, 'Verified priests retrieved.', []);
+      const records = await db
+        .select({
+          id: priestProfiles.id,
+          userId: users.id,
+          fullName: users.name,
+          displayName: users.name,
+          phoneNumber: users.phoneNumber,
+          email: users.email,
+          approvalStatus: priestProfiles.approvalStatus,
+          accountStatus: users.accountStatus,
+          banReason: users.banReason,
+          experienceYears: priestProfiles.experienceYears,
+          bio: priestProfiles.bio,
+          languages: priestProfiles.languages,
+          specializations: priestProfiles.specializations,
+          serviceAreas: priestProfiles.serviceAreas,
+          city: priestProfiles.city,
+          state: priestProfiles.state,
+          profileImageUrl: priestProfiles.profileImageUrl,
+          rating: priestProfiles.rating,
+          reviewCount: priestProfiles.reviewCount,
+          createdAt: priestProfiles.createdAt,
+        })
+        .from(priestProfiles)
+        .innerJoin(users, eq(priestProfiles.userId, users.id));
+
+      const formatted = records.map((p) => ({
+        ...p,
+        isPhoneVerified: true,
+        rating: Number(p.rating || 0),
+        createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+      }));
+
+      sendSuccess(res, 'Verified priests retrieved.', formatted);
     } catch (error) {
       next(error);
     }
@@ -25,8 +54,54 @@ export class PriestController {
    */
   async getPriestById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Query priest by id from DB
-      sendSuccess(res, `Priest profile ${req.params.id} retrieved.`, null);
+      const priestId = req.params.id;
+      const [record] = await db
+        .select({
+          id: priestProfiles.id,
+          userId: users.id,
+          fullName: users.name,
+          displayName: users.name,
+          phoneNumber: users.phoneNumber,
+          email: users.email,
+          approvalStatus: priestProfiles.approvalStatus,
+          accountStatus: users.accountStatus,
+          banReason: users.banReason,
+          experienceYears: priestProfiles.experienceYears,
+          bio: priestProfiles.bio,
+          languages: priestProfiles.languages,
+          specializations: priestProfiles.specializations,
+          serviceAreas: priestProfiles.serviceAreas,
+          city: priestProfiles.city,
+          state: priestProfiles.state,
+          profileImageUrl: priestProfiles.profileImageUrl,
+          rating: priestProfiles.rating,
+          reviewCount: priestProfiles.reviewCount,
+          createdAt: priestProfiles.createdAt,
+        })
+        .from(priestProfiles)
+        .innerJoin(users, eq(priestProfiles.userId, users.id))
+        .where(eq(priestProfiles.id, priestId))
+        .limit(1);
+
+      if (!record) {
+        sendSuccess(res, `Priest profile ${priestId} not found.`, null);
+        return;
+      }
+
+      const services = await db
+        .select()
+        .from(priestServices)
+        .where(eq(priestServices.priestId, priestId));
+
+      const formatted = {
+        ...record,
+        isPhoneVerified: true,
+        rating: Number(record.rating || 0),
+        createdAt: record.createdAt ? new Date(record.createdAt).toISOString() : new Date().toISOString(),
+        services,
+      };
+
+      sendSuccess(res, `Priest profile ${priestId} retrieved.`, formatted);
     } catch (error) {
       next(error);
     }

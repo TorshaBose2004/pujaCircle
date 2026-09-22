@@ -1,4 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
+import { db } from '../config/db.js';
+import { users, priestProfiles } from '../models/index.js';
 import { sendSuccess } from '../views/response.view.js';
 import { adminService } from '../services/admin.service.js';
 
@@ -48,7 +51,10 @@ export class AdminController {
    */
   async approvePriest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Admin] Update priest_profiles SET approvalStatus = 'APPROVED' WHERE id = req.params.id
+      await db
+        .update(priestProfiles)
+        .set({ approvalStatus: 'APPROVED' })
+        .where(eq(priestProfiles.id, req.params.id));
       sendSuccess(res, `Priest application ${req.params.id} has been approved.`);
     } catch (error) {
       next(error);
@@ -60,7 +66,13 @@ export class AdminController {
    */
   async rejectPriest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Admin] Update priest_profiles SET approvalStatus = 'REJECTED' WHERE id = req.params.id
+      await db
+        .update(priestProfiles)
+        .set({
+          approvalStatus: 'REJECTED',
+          rejectionReason: req.body?.reason || 'Application declined by administrator',
+        })
+        .where(eq(priestProfiles.id, req.params.id));
       sendSuccess(res, `Priest application ${req.params.id} has been rejected.`);
     } catch (error) {
       next(error);
@@ -83,7 +95,18 @@ export class AdminController {
    */
   async unbanPriest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Admin] Find user by priest id and SET accountStatus = 'ACTIVE'
+      const [priest] = await db
+        .select({ userId: priestProfiles.userId })
+        .from(priestProfiles)
+        .where(eq(priestProfiles.id, req.params.id))
+        .limit(1);
+
+      if (priest) {
+        await db
+          .update(users)
+          .set({ accountStatus: 'ACTIVE', banReason: null })
+          .where(eq(users.id, priest.userId));
+      }
       sendSuccess(res, `Priest ${req.params.id} account has been reactivated.`);
     } catch (error) {
       next(error);

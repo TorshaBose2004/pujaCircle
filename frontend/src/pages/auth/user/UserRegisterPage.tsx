@@ -39,7 +39,7 @@ import { toast } from "sonner";
  */
 export const UserRegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
+  const { setUser, setToken } = useAuthStore();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showPassword, setShowPassword] = useState(false);
@@ -211,6 +211,9 @@ export const UserRegisterPage: React.FC = () => {
       });
 
       if (res.success && res.data?.user) {
+        if (res.data.token) {
+          setToken(res.data.token);
+        }
         setUser(res.data.user);
         toast.success("Registration successful! Welcome to PujaCircle.");
         navigate("/user/home");
