@@ -11,6 +11,8 @@ import { ritualRoutes } from './ritual.routes.js';
 import { bookingController } from '../controllers/booking.controller.js';
 import { imageKitService } from '../services/imagekit.service.js';
 import { sendSuccess } from '../views/response.view.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { ratingSchema } from '../validators/booking.validator.js';
 
 const apiRouter = Router();
 
@@ -45,6 +47,8 @@ apiRouter.use('/addresses', addressRoutes);
 apiRouter.use('/bookings', bookingRoutes);
 apiRouter.use('/geo', geoRoutes);
 apiRouter.use('/rituals', ritualRoutes);
-apiRouter.post('/ratings', bookingController.submitRating);
+apiRouter.post('/ratings', validate(ratingSchema), bookingController.submitRating);
+
 
 export const routes = apiRouter;
+

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { catalogController } from '../controllers/catalog.controller.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { createCatalogEntrySchema, updateCatalogEntrySchema } from '../validators/catalog.validator.js';
 
 const router = Router();
 
@@ -9,8 +11,9 @@ const router = Router();
  */
 router.get('/', catalogController.getCatalog);
 router.get('/:id', catalogController.getCatalogById);
-router.post('/', catalogController.createCatalogEntry);
-router.put('/:id', catalogController.updateCatalogEntry);
+router.post('/', validate(createCatalogEntrySchema), catalogController.createCatalogEntry);
+router.put('/:id', validate(updateCatalogEntrySchema), catalogController.updateCatalogEntry);
 router.delete('/:id', catalogController.deleteCatalogEntry);
 
 export const catalogRoutes = router;
+

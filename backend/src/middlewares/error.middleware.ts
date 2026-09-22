@@ -5,7 +5,8 @@ import { env } from '../config/env.js';
 
 /**
  * [MIDDLEWARE] Global Error Handler
- * Sanitizes and logs errors, preventing stack traces from leaking to clients in production.
+ * Sanitizes errors, preventing stack traces, internal file paths, or raw DB errors from leaking to clients.
+ * Full technical errors are logged server-side for debugging.
  */
 export const errorHandler = (
   err: any,
@@ -13,23 +14,43 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  console.error('Unhandled Server Error:', err);
+  // Always log full error details server-side for observability and debugging
+  console.error('[SERVER ERROR DETAIL]:', err);
 
   // Zod Validation Error handling
   if (err instanceof ZodError) {
     const issue = err.issues[0];
     const message = issue ? `${issue.path.join('.') || 'input'}: ${issue.message}` : 'Validation failed';
-    sendError(res, message, 400, err.format());
+    // Return clean user-facing validation errors without internal parser metadata
+    const cleanErrors = err.issues.map((i) => ({
+      field: i.path.join('.'),
+      message: i.message,
+    }));
+    sendError(res, message, 400, cleanErrors);
     return;
   }
 
-  // Known custom or Supabase operational errors
-  if (err.statusCode && typeof err.statusCode === 'number') {
-    sendError(res, err.message || 'Operation failed', err.statusCode);
+  // Known custom operational errors with safe status codes
+  if (err.statusCode && typeof err.statusCode === 'number' && err.statusCode < 500) {
+    // Ensure raw SQL errors or internal paths are not passed in err.message
+    const isSafeMessage = typeof err.message === 'string' &&
+      !err.message.includes('relation') &&
+      !err.message.includes('column') &&
+      !err.message.includes('syntax') &&
+      !err.message.includes('SELECT') &&
+      !err.message.includes('INSERT') &&
+      !err.message.includes('UPDATE') &&
+      !err.message.includes('DELETE') &&
+      !err.message.includes('\\') &&
+      !err.message.includes('/');
+
+    const safeMessage = isSafeMessage ? err.message : 'The requested operation could not be completed.';
+    sendError(res, safeMessage, err.statusCode);
     return;
   }
 
-  // Fallback for unexpected errors: Always return a generic error message to clients, while logging full stack trace server-side
+  // Fallback for unexpected or database 500 errors:
+  // Strictly return generic messages to clients - never expose raw DB internals or stack traces
   sendError(
     res,
     'An unexpected server error occurred. Please try again.',
