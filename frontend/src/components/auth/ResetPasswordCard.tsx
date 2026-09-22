@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { resetPasswordSchema, ResetPasswordInput } from "@/schemas/auth.schema";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Lock,
+  Mail,
   CheckCircle2,
   AlertCircle,
   Eye,
@@ -16,6 +17,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authApi } from "@/api/auth.api";
 
 export interface ResetPasswordCardProps {
   role: "USER" | "PRIEST";
@@ -32,9 +34,14 @@ export const ResetPasswordCard: React.FC<ResetPasswordCardProps> = ({
   loginPath,
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialEmail = searchParams.get("email") || "";
+
+  const [email, setEmail] = useState(initialEmail);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPriest = role === "PRIEST";
 
@@ -57,17 +64,41 @@ export const ResetPasswordCard: React.FC<ResetPasswordCardProps> = ({
   const watchConfirmPassword = watch("confirmPassword");
 
   const isFormValid = Boolean(
+    email.trim() &&
     watchOtp?.trim().length === 6 &&
     watchNewPassword &&
     watchNewPassword.length >= 6 &&
     watchConfirmPassword &&
-    watchConfirmPassword === watchNewPassword,
+    watchConfirmPassword === watchNewPassword &&
+    !isSubmitting
   );
 
-  const onSubmit = async (_data: ResetPasswordInput) => {
+  const onSubmit = async (data: ResetPasswordInput) => {
+    if (!email.trim()) {
+      setError("Please provide your registered account email address.");
+      return;
+    }
+
     setError(null);
-    toast.success("Password updated successfully! Please sign in.");
-    navigate(loginPath);
+    setIsSubmitting(true);
+    try {
+      const res = await authApi.resetPassword({
+        email: email.trim().toLowerCase(),
+        otp: data.otp.trim(),
+        newPassword: data.newPassword,
+      });
+
+      if (res.success) {
+        toast.success("Password updated successfully! Please sign in with your new passkey.");
+        navigate(loginPath);
+      } else {
+        setError(res.message || "Failed to update password. Please check your verification code.");
+      }
+    } catch {
+      setError("An unexpected error occurred while resetting your credentials. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -162,6 +193,23 @@ export const ResetPasswordCard: React.FC<ResetPasswordCardProps> = ({
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-stone-800">
+                  Registered Email Address
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-stone-500" />
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="acharya@example.com"
+                    className="pl-10 text-xs h-11 rounded-md border-amber-300 focus-visible:ring-red-700"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-stone-800">
                   Recovery OTP (6 Digits)
                 </Label>
                 <Input
@@ -248,10 +296,10 @@ export const ResetPasswordCard: React.FC<ResetPasswordCardProps> = ({
               <div className="space-y-3 pt-2">
                 <Button
                   type="submit"
-                  disabled={!isFormValid}
+                  disabled={!isFormValid || isSubmitting}
                   className="w-full text-xs font-bold bg-[#780016] hover:bg-[#5a0010] text-white h-11 rounded-md shadow-md cursor-pointer gap-2 disabled:opacity-50"
                 >
-                  <span>Update Password & Sign In</span>
+                  <span>{isSubmitting ? "Updating Passkey..." : "Update Password & Sign In"}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>

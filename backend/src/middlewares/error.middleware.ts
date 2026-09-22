@@ -29,12 +29,10 @@ export const errorHandler = (
     return;
   }
 
-  // Fallback for unexpected errors
-  const isDev = env.NODE_ENV === 'development';
+  // Fallback for unexpected errors: Always return a generic error message to clients, while logging full stack trace server-side
   sendError(
     res,
-    isDev ? err.message || 'Internal server error' : 'An unexpected server error occurred. Please try again.',
-    500,
-    isDev ? { stack: err.stack } : undefined
+    'An unexpected server error occurred. Please try again.',
+    500
   );
 };

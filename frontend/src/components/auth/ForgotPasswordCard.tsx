@@ -18,6 +18,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { authApi } from "@/api/auth.api";
 
 export interface ForgotPasswordCardProps {
   defaultRole?: "USER" | "PRIEST";
@@ -94,14 +95,22 @@ export const ForgotPasswordCard: React.FC<ForgotPasswordCardProps> = ({
     });
   };
 
-  const onSubmit = (data: ForgotPasswordInput) => {
+  const onSubmit = async (data: ForgotPasswordInput) => {
     setError(null);
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await authApi.forgotPassword({ email: data.email.trim().toLowerCase() });
+      if (res.success) {
+        toast.info(`Recovery OTP sent to ${data.email}.`);
+        navigate(`${roleConfig.reset}?email=${encodeURIComponent(data.email.trim().toLowerCase())}`);
+      } else {
+        setError(res.message || "Failed to dispatch recovery code. Please try again.");
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
       setIsLoading(false);
-      toast.info(`Recovery OTP sent to ${data.email}.`);
-      navigate(roleConfig.reset);
-    }, 400);
+    }
   };
 
   return (

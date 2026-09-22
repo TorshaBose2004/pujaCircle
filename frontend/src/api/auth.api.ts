@@ -8,6 +8,8 @@ import {
   VerifyEmailOtpRequest,
   RegisterUserRequest,
   RegisterPriestRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 } from '@/types/auth.types';
 import { apiClient } from './client';
 import { logAppError, getUserFriendlyErrorMessage } from '@/lib/errorHandler';
@@ -110,7 +112,7 @@ export const authApi = {
       logAppError('authApi.sendEmailOtp', error, { email: data.email });
       return {
         success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to send password reset code. Please try again.'),
+        message: getUserFriendlyErrorMessage(error, 'Failed to send verification code. Please try again.'),
       };
     }
   },
@@ -127,4 +129,31 @@ export const authApi = {
       };
     }
   },
+
+  forgotPassword: async (data: ForgotPasswordRequest): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await apiClient.post('/auth/forgot-password', data);
+      return res as any;
+    } catch (error) {
+      logAppError('authApi.forgotPassword', error, { email: data.email });
+      return {
+        success: false,
+        message: getUserFriendlyErrorMessage(error, 'Failed to send recovery code. Please verify your email and try again.'),
+      };
+    }
+  },
+
+  resetPassword: async (data: ResetPasswordRequest): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await apiClient.post('/auth/reset-password', data);
+      return res as any;
+    } catch (error) {
+      logAppError('authApi.resetPassword', error, { email: data.email });
+      return {
+        success: false,
+        message: getUserFriendlyErrorMessage(error, 'Failed to update password. Please check the code and try again.'),
+      };
+    }
+  },
 };
+

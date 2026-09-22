@@ -10,6 +10,8 @@ import {
   verifyPhoneOtpSchema,
   emailOtpRequestSchema,
   verifyEmailOtpSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from '../validators/auth.validator.js';
 
 const router = Router();
@@ -35,5 +37,9 @@ router.post('/otp/verify-phone', validate(verifyPhoneOtpSchema), authController.
 // Email OTP Endpoints
 router.post('/otp/send-email', validate(emailOtpRequestSchema), authController.sendEmailOtp);
 router.post('/otp/verify-email', validate(verifyEmailOtpSchema), authController.verifyEmailOtp);
+
+// Password Recovery Endpoints
+router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
 export const authRoutes = router;

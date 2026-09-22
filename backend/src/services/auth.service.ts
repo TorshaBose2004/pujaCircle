@@ -5,12 +5,16 @@ import { users } from '../models/user.model.js';
 import { priestProfiles } from '../models/priest.model.js';
 import { addresses } from '../models/address.model.js';
 import { toUserView, UserViewModel } from '../views/user.view.js';
+import { brevoEmailService } from './email.service.js';
+import { smsService } from './sms.service.js';
 import {
   LoginInput,
   RegisterUserInput,
   RegisterPriestInput,
   VerifyPhoneOtpInput,
   VerifyEmailOtpInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
 } from '../validators/auth.validator.js';
 
 export interface AuthResult {
@@ -360,21 +364,16 @@ export class AuthService {
   }
 
   /**
-   * Dispatch Phone OTP via Supabase & Dynamic OTP Engine
+   * Dispatch Phone OTP via MSG91 Gateway & Dynamic OTP Engine
    */
   async sendPhoneOtp(phoneNumber: string): Promise<{ message: string }> {
     const cleanPhone = phoneNumber.trim();
     const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
-    generateDynamicOtp(cleanPhone);
+    const code = generateDynamicOtp(cleanPhone);
     generateDynamicOtp(formattedPhone);
 
-    try {
-      await supabase.auth.signInWithOtp({
-        phone: formattedPhone,
-      });
-    } catch (err: any) {
-      console.warn('Supabase Phone OTP notice:', err.message);
-    }
+    // Send SMS OTP via MSG91 Gateway (for Devotee & Purohit)
+    await smsService.sendOtpSms(cleanPhone, code);
 
     return {
       message: `Verification code dispatched successfully to ${formattedPhone}.`,
@@ -437,17 +436,14 @@ export class AuthService {
   }
 
   /**
-   * Dispatch Email OTP via Supabase & Dynamic OTP Engine
+   * Dispatch Email OTP via Brevo REST API & Dynamic Engine
    */
   async sendEmailOtp(email: string): Promise<{ message: string }> {
     const cleanEmail = email.trim().toLowerCase();
-    generateDynamicOtp(cleanEmail);
+    const code = generateDynamicOtp(cleanEmail);
 
-    try {
-      await supabase.auth.signInWithOtp({ email: cleanEmail });
-    } catch (err: any) {
-      console.warn('Supabase Email OTP notice:', err.message);
-    }
+    // Dispatch real email via Brevo REST API (100% cloud safe)
+    await brevoEmailService.sendOtpEmail(cleanEmail, code, 'VERIFICATION');
 
     return {
       message: `Verification code dispatched successfully to ${cleanEmail}.`,
@@ -461,21 +457,7 @@ export class AuthService {
     const cleanEmail = input.email.trim().toLowerCase();
     const isDynamicValid = verifyStoredOtp(cleanEmail, input.otp);
 
-    let supabaseSuccess = false;
     if (!isDynamicValid) {
-      try {
-        const { error } = await supabase.auth.verifyOtp({
-          email: cleanEmail,
-          token: input.otp,
-          type: 'email',
-        });
-        if (!error) supabaseSuccess = true;
-      } catch {
-        // Live provider not active
-      }
-    }
-
-    if (!isDynamicValid && !supabaseSuccess) {
       throw {
         statusCode: 400,
         message: 'Invalid or expired email verification code. Please check the code and try again.',
@@ -493,6 +475,89 @@ export class AuthService {
     }
 
     return { message: 'Email verified successfully.' };
+  }
+
+  /**
+   * Request password recovery OTP via Brevo REST API
+   */
+  async forgotPassword(input: ForgotPasswordInput): Promise<{ message: string }> {
+    const cleanEmail = input.email.trim().toLowerCase();
+
+    // Verify account exists in PostgreSQL or Supabase
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, cleanEmail))
+      .limit(1);
+
+    if (!existingUser) {
+      // Check Supabase Auth as secondary check
+      const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+      const existsInSupabase = userList?.users?.some((u) => u.email?.toLowerCase() === cleanEmail);
+      if (!existsInSupabase) {
+        throw {
+          statusCode: 404,
+          message: 'No registered account found with this email address.',
+        };
+      }
+    }
+
+    const code = generateDynamicOtp(cleanEmail);
+
+    // Dispatch password reset email via Brevo REST API
+    await brevoEmailService.sendOtpEmail(cleanEmail, code, 'PASSWORD_RESET');
+
+    return {
+      message: `Password recovery verification code sent to ${cleanEmail}.`,
+    };
+  }
+
+  /**
+   * Reset user password using OTP verification code
+   */
+  async resetPassword(input: ResetPasswordInput): Promise<{ message: string }> {
+    const cleanEmail = input.email.trim().toLowerCase();
+    const isDynamicValid = verifyStoredOtp(cleanEmail, input.otp);
+
+    if (!isDynamicValid) {
+      throw {
+        statusCode: 400,
+        message: 'Invalid or expired recovery verification code. Please request a new code.',
+      };
+    }
+
+    // Locate user in Supabase Auth
+    const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError || !userList?.users) {
+      throw {
+        statusCode: 500,
+        message: 'Unable to process credential reset at this time.',
+      };
+    }
+
+    const targetUser = userList.users.find((u) => u.email?.toLowerCase() === cleanEmail);
+    if (!targetUser) {
+      throw {
+        statusCode: 404,
+        message: 'No active account found for password reset.',
+      };
+    }
+
+    // Update password in Supabase Auth
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
+      password: input.newPassword,
+    });
+
+    if (updateError) {
+      throw {
+        statusCode: 400,
+        message: updateError.message || 'Failed to update credentials. Please try again.',
+      };
+    }
+
+    return {
+      message: 'Password updated successfully. You may now sign in with your new credentials.',
+    };
   }
 
   /**
