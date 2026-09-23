@@ -1,19 +1,12 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { sendSuccess } from '../views/response.view.js';
+import { Router } from 'express';
+import { ritualController } from '../controllers/ritual.controller.js';
 
 const router = Router();
 
 /**
  * [ROUTE] /api/v1/rituals
- * Retrieves ceremonial rituals (Teammate Skeleton).
+ * Retrieves sacred ceremonial rituals and taxonomy.
  */
-router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    // TODO: [Teammate - Rituals] Fetch sacred rituals from database catalog
-    sendSuccess(res, 'Sacred rituals retrieved.', []);
-  } catch (error) {
-    next(error);
-  }
-});
+router.get('/', ritualController.getRituals);
 
 export const ritualRoutes = router;

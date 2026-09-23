@@ -12,7 +12,7 @@ import {
   verifyEmailOtpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-} from '../validators/auth.validator.js';
+} from '../schemas/auth.schema.js';
 
 const router = Router();
 

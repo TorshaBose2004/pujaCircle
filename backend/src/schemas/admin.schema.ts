@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * [VALIDATOR] Admin Schemas
+ * [SCHEMA] Admin Schemas
  * Strict validation for administrative actions and moderation.
  */
 export const adminActionReasonSchema = z.object({

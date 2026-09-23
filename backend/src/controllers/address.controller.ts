@@ -1,20 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
-import { sendSuccess } from '../views/response.view.js';
+import { sendSuccess, sendError } from '../views/response.view.js';
+import { addressService } from '../services/address.service.js';
 
 /**
- * [CONTROLLER] Address Controller (Teammate Skeleton)
- * 
+ * [CONTROLLER] Address Controller
  * Responsibility: Devotee ceremonial address management.
- * Assigned to: Teammate (Address Module)
  */
 export class AddressController {
   /**
    * GET /api/v1/addresses
    */
-  async getAddresses(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAddresses(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Address] Query addresses table for user addresses
-      sendSuccess(res, 'Addresses retrieved.', []);
+      const activeUserId =
+        (typeof req.query.userId === 'string' ? req.query.userId : undefined) || req.user?.id;
+      if (!activeUserId) {
+        sendSuccess(res, 'Addresses retrieved.', []);
+        return;
+      }
+      const addresses = await addressService.getAddresses(activeUserId);
+      sendSuccess(res, 'Addresses retrieved.', addresses);
     } catch (error) {
       next(error);
     }
@@ -23,10 +28,15 @@ export class AddressController {
   /**
    * POST /api/v1/addresses
    */
-  async createAddress(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Address] Insert new address into addresses table
-      sendSuccess(res, 'Address saved successfully.', null, 201);
+      const activeUserId = req.user?.id || req.body?.userId;
+      if (!activeUserId) {
+        sendError(res, 'Authentication required to save address.', 401);
+        return;
+      }
+      const address = await addressService.createAddress(activeUserId, req.body);
+      sendSuccess(res, 'Address saved successfully.', address, 201);
     } catch (error) {
       next(error);
     }
@@ -37,8 +47,9 @@ export class AddressController {
    */
   async updateAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Address] Update address in addresses table by id
-      sendSuccess(res, `Address ${req.params.id} updated successfully.`);
+      const activeUserId = req.user?.id || '';
+      const updated = await addressService.updateAddress(req.params.id, activeUserId, req.body);
+      sendSuccess(res, `Address ${req.params.id} updated successfully.`, updated);
     } catch (error) {
       next(error);
     }
@@ -49,7 +60,8 @@ export class AddressController {
    */
   async deleteAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Address] Delete address from addresses table by id
+      const activeUserId = req.user?.id || '';
+      await addressService.deleteAddress(req.params.id, activeUserId);
       sendSuccess(res, `Address ${req.params.id} deleted successfully.`);
     } catch (error) {
       next(error);
@@ -61,8 +73,9 @@ export class AddressController {
    */
   async setDefaultAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Address] Set isDefault = true for this address and false for other addresses of user
-      sendSuccess(res, `Default address set to ${req.params.id}.`);
+      const activeUserId = req.user?.id || '';
+      const updated = await addressService.setDefaultAddress(req.params.id, activeUserId);
+      sendSuccess(res, `Default address set to ${req.params.id}.`, updated);
     } catch (error) {
       next(error);
     }

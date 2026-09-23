@@ -15,6 +15,7 @@ export const pujaCatalog = pgTable('puja_catalog', {
   samagriList: jsonb('samagri_list').$type<string[]>().default([]).notNull(),
   steps: jsonb('steps').$type<string[]>().default([]).notNull(),
   timingNote: text('timing_note').default('').notNull(),
+  coverImage: text('cover_image'),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

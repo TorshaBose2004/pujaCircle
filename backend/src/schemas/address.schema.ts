@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * [VALIDATOR] Address Schemas
+ * [SCHEMA] Address Schemas
  * Strict validation bounds for Devotee addresses.
  */
 export const createAddressSchema = z.object({

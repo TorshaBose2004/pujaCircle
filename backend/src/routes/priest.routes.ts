@@ -8,7 +8,8 @@ import {
   createPriestServiceSchema,
   updatePriestServiceSchema,
   createPriestSlotSchema,
-} from '../validators/priest.validator.js';
+  updatePriestSlotSchema,
+} from '../schemas/priest.schema.js';
 
 const router = Router();
 
@@ -40,7 +41,7 @@ router.patch('/:id/services/:serviceId/toggle', requireAuth, priestController.to
 router.get('/:id/slots', priestController.getPriestSlots);
 router.get('/:id/slots/available', priestController.getPriestSlots);
 router.post('/:id/slots', requireAuth, validate(createPriestSlotSchema), priestController.createPriestSlot);
-router.put('/:id/slots/:slotId', requireAuth, validate(createPriestSlotSchema.partial()), priestController.updatePriestSlot);
+router.put('/:id/slots/:slotId', requireAuth, validate(updatePriestSlotSchema), priestController.updatePriestSlot);
 router.delete('/:id/slots/:slotId', requireAuth, priestController.deletePriestSlot);
 
 export const priestRoutes = router;

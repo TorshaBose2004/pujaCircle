@@ -1,11 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { sendSuccess } from '../views/response.view.js';
+import { sendSuccess, sendError } from '../views/response.view.js';
+import { userService } from '../services/user.service.js';
 
 /**
- * [CONTROLLER] User Controller (Teammate Skeleton)
- * 
- * Responsibility: Devotee profile management and user address book.
- * Assigned to: Teammate (User Module)
+ * [CONTROLLER] User Controller
+ * Responsibility: Devotee profile management, credentials, and settings.
  */
 export class UserController {
   /**
@@ -13,8 +12,13 @@ export class UserController {
    */
   async getProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - User] Query user profile details from DB
-      sendSuccess(res, 'Profile retrieved successfully.', req.user || null);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+
+      const profile = await userService.getProfile(req.user.id);
+      sendSuccess(res, 'Profile retrieved successfully.', profile ?? req.user);
     } catch (error) {
       next(error);
     }
@@ -25,8 +29,13 @@ export class UserController {
    */
   async updateProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - User] Update user name and avatar in DB
-      sendSuccess(res, 'Profile updated successfully.', req.user || null);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+
+      const updated = await userService.updateProfile(req.user.id, req.body);
+      sendSuccess(res, 'Profile updated successfully.', updated ?? req.user);
     } catch (error) {
       next(error);
     }
@@ -35,46 +44,15 @@ export class UserController {
   /**
    * POST /api/v1/users/change-password
    */
-  async changePassword(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - User] Change password via Supabase Auth
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+
+      await userService.changePassword(req.user.id, req.body);
       sendSuccess(res, 'Password updated successfully.');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * GET /api/v1/users/addresses
-   */
-  async getAddresses(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      // TODO: [Teammate - User] Query addresses table for user's addresses
-      sendSuccess(res, 'Addresses retrieved.', []);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * POST /api/v1/users/addresses
-   */
-  async addAddress(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      // TODO: [Teammate - User] Insert new address into addresses table
-      sendSuccess(res, 'Address saved successfully.', null, 201);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * DELETE /api/v1/users/addresses/:id
-   */
-  async deleteAddress(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      // TODO: [Teammate - User] Delete address from addresses table by id
-      sendSuccess(res, `Address ${req.params.id} deleted successfully.`);
     } catch (error) {
       next(error);
     }

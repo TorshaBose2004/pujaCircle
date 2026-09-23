@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, integer, numeric, timestamp, pgEnum, json
 import { users } from './user.model.js';
 
 export const approvalStatusEnum = pgEnum('priest_approval_status', ['PENDING', 'APPROVED', 'REJECTED']);
+export const slotStatusEnum = pgEnum('slot_status', ['AVAILABLE', 'BOOKED', 'BLOCKED']);
 
 /**
  * [MODEL] Priest Profiles Table
@@ -45,7 +46,26 @@ export const priestServices = pgTable('priest_services', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+/**
+ * [MODEL] Priest Slots Table
+ * Date-based availability slots configured by priests for ceremony bookings.
+ */
+export const priestSlots = pgTable('priest_slots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  priestId: uuid('priest_id').notNull().references(() => priestProfiles.id, { onDelete: 'cascade' }),
+  slotDate: varchar('slot_date', { length: 10 }).notNull(), // YYYY-MM-DD
+  startTime: varchar('start_time', { length: 10 }).notNull(), // HH:mm
+  endTime: varchar('end_time', { length: 10 }).notNull(), // HH:mm
+  status: slotStatusEnum('status').default('AVAILABLE').notNull(),
+  bookingId: uuid('booking_id'),
+  isException: boolean('is_exception').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export type PriestProfile = typeof priestProfiles.$inferSelect;
 export type NewPriestProfile = typeof priestProfiles.$inferInsert;
 export type PriestService = typeof priestServices.$inferSelect;
 export type NewPriestService = typeof priestServices.$inferInsert;
+export type PriestSlot = typeof priestSlots.$inferSelect;
+export type NewPriestSlot = typeof priestSlots.$inferInsert;

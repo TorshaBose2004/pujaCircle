@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * [VALIDATOR] Priest Schemas
+ * [SCHEMA] Priest Validation Schemas
  * Strict validation bounds for priest profiles, services, and slots.
  */
 export const updatePriestProfileSchema = z.object({
@@ -28,13 +28,44 @@ export const createPriestServiceSchema = z.object({
 
 export const updatePriestServiceSchema = createPriestServiceSchema.partial();
 
-export const createPriestSlotSchema = z.object({
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Valid date required' }),
+const basePriestSlotSchema = z.object({
+  slotDate: z.string().optional(),
+  date: z.string().optional(),
   startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Time must be in HH:mm 24hr format'),
   endTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Time must be in HH:mm 24hr format'),
   isAvailable: z.boolean().default(true),
 });
 
+export const createPriestSlotSchema = basePriestSlotSchema.refine(
+  (data) => Boolean(data.slotDate || data.date),
+  {
+    message: 'Slot date is required',
+    path: ['slotDate'],
+  }
+);
+
+export const updatePriestSlotSchema = basePriestSlotSchema.partial();
+
+export const priestFilterParamsSchema = z.object({
+  city: z.string().optional(),
+  catalogId: z.string().optional(),
+  serviceName: z.string().optional(),
+  ritualSlug: z.string().optional(),
+  language: z.string().optional(),
+  specialization: z.string().optional(),
+  searchQuery: z.string().optional(),
+  date: z.string().optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ALL']).optional(),
+  accountStatus: z.enum(['ACTIVE', 'BANNED', 'ALL']).optional(),
+  minPrice: z.coerce.number().optional(),
+  maxPrice: z.coerce.number().optional(),
+  minExperience: z.coerce.number().optional(),
+  minRating: z.coerce.number().optional(),
+});
+
 export type UpdatePriestProfileInput = z.infer<typeof updatePriestProfileSchema>;
 export type CreatePriestServiceInput = z.infer<typeof createPriestServiceSchema>;
 export type UpdatePriestServiceInput = z.infer<typeof updatePriestServiceSchema>;
+export type CreatePriestSlotInput = z.infer<typeof createPriestSlotSchema>;
+export type UpdatePriestSlotInput = z.infer<typeof updatePriestSlotSchema>;
+export type PriestFilterParams = z.infer<typeof priestFilterParamsSchema>;

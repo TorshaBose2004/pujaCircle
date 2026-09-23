@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * [VALIDATOR] Auth Validation Schemas
+ * [SCHEMA] Authentication Validation Schemas
  * Type-safe input checking for authentication, registration, and OTP flows.
  */
 

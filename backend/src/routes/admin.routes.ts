@@ -3,7 +3,7 @@ import { adminController } from '../controllers/admin.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import { requireAdmin } from '../middlewares/role.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { adminActionReasonSchema } from '../validators/admin.validator.js';
+import { adminActionReasonSchema } from '../schemas/admin.schema.js';
 
 const router = Router();
 
@@ -16,6 +16,9 @@ router.use(requireAdmin);
 
 // Platform KPIs & Stats
 router.get('/dashboard/stats', adminController.getDashboardStats);
+
+// Platform Bookings Monitoring
+router.get('/bookings', adminController.getAllBookings);
 
 // Priest Verification & Lifecycle Management
 router.get('/priests', adminController.getAllPriests);
@@ -32,4 +35,3 @@ router.post('/users/:id/suspend', validate(adminActionReasonSchema), adminContro
 router.post('/users/:id/unsuspend', adminController.unsuspendUser);
 
 export const adminRoutes = router;
-

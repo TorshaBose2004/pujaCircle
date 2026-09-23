@@ -9,10 +9,10 @@ import { bookingRoutes } from './booking.routes.js';
 import { geoRoutes } from './geo.routes.js';
 import { ritualRoutes } from './ritual.routes.js';
 import { bookingController } from '../controllers/booking.controller.js';
-import { imageKitService } from '../services/imagekit.service.js';
+import { mediaController } from '../controllers/media.controller.js';
 import { sendSuccess } from '../views/response.view.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { ratingSchema } from '../validators/booking.validator.js';
+import { ratingSchema } from '../schemas/booking.schema.js';
 
 const apiRouter = Router();
 
@@ -28,12 +28,10 @@ apiRouter.get('/health', (_req, res) => {
 });
 
 /**
- * ImageKit Direct Upload Signature
+ * Cloudinary Direct Upload Signature
+ * Provides signed authentication parameters for direct frontend-to-Cloudinary upload.
  */
-apiRouter.get('/media/auth', (_req, res) => {
-  const authParams = imageKitService.getAuthenticationParameters();
-  sendSuccess(res, 'ImageKit authentication parameters generated.', authParams);
-});
+apiRouter.get('/media/signature', mediaController.getUploadSignature);
 
 /**
  * Module Subrouters
@@ -49,6 +47,4 @@ apiRouter.use('/geo', geoRoutes);
 apiRouter.use('/rituals', ritualRoutes);
 apiRouter.post('/ratings', validate(ratingSchema), bookingController.submitRating);
 
-
 export const routes = apiRouter;
-

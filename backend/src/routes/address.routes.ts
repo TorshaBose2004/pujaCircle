@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { addressController } from '../controllers/address.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { createAddressSchema, updateAddressSchema } from '../validators/address.validator.js';
+import { createAddressSchema, updateAddressSchema } from '../schemas/address.schema.js';
 
 const router = Router();
 

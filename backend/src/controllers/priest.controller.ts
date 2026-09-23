@@ -1,49 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
-import { eq } from 'drizzle-orm';
-import { db } from '../config/db.js';
-import { users, priestProfiles, priestServices } from '../models/index.js';
-import { sendSuccess } from '../views/response.view.js';
+import { sendSuccess, sendError } from '../views/response.view.js';
+import { priestService } from '../services/priest.service.js';
 
+/**
+ * [CONTROLLER] Priest Controller
+ * Responsibility: Verified priest directory, profile customizations, service offerings, and slot scheduling.
+ */
 export class PriestController {
   /**
    * GET /api/v1/priests
    */
-  async searchPriests(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async searchPriests(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const records = await db
-        .select({
-          id: priestProfiles.id,
-          userId: users.id,
-          fullName: users.name,
-          displayName: users.name,
-          phoneNumber: users.phoneNumber,
-          email: users.email,
-          approvalStatus: priestProfiles.approvalStatus,
-          accountStatus: users.accountStatus,
-          banReason: users.banReason,
-          experienceYears: priestProfiles.experienceYears,
-          bio: priestProfiles.bio,
-          languages: priestProfiles.languages,
-          specializations: priestProfiles.specializations,
-          serviceAreas: priestProfiles.serviceAreas,
-          city: priestProfiles.city,
-          state: priestProfiles.state,
-          profileImageUrl: priestProfiles.profileImageUrl,
-          rating: priestProfiles.rating,
-          reviewCount: priestProfiles.reviewCount,
-          createdAt: priestProfiles.createdAt,
-        })
-        .from(priestProfiles)
-        .innerJoin(users, eq(priestProfiles.userId, users.id));
-
-      const formatted = records.map((p) => ({
-        ...p,
-        isPhoneVerified: true,
-        rating: Number(p.rating || 0),
-        createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
-      }));
-
-      sendSuccess(res, 'Verified priests retrieved.', formatted);
+      const priests = await priestService.searchPriests(req.query as any);
+      sendSuccess(res, 'Verified priests retrieved.', priests);
     } catch (error) {
       next(error);
     }
@@ -54,54 +24,12 @@ export class PriestController {
    */
   async getPriestById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const priestId = req.params.id;
-      const [record] = await db
-        .select({
-          id: priestProfiles.id,
-          userId: users.id,
-          fullName: users.name,
-          displayName: users.name,
-          phoneNumber: users.phoneNumber,
-          email: users.email,
-          approvalStatus: priestProfiles.approvalStatus,
-          accountStatus: users.accountStatus,
-          banReason: users.banReason,
-          experienceYears: priestProfiles.experienceYears,
-          bio: priestProfiles.bio,
-          languages: priestProfiles.languages,
-          specializations: priestProfiles.specializations,
-          serviceAreas: priestProfiles.serviceAreas,
-          city: priestProfiles.city,
-          state: priestProfiles.state,
-          profileImageUrl: priestProfiles.profileImageUrl,
-          rating: priestProfiles.rating,
-          reviewCount: priestProfiles.reviewCount,
-          createdAt: priestProfiles.createdAt,
-        })
-        .from(priestProfiles)
-        .innerJoin(users, eq(priestProfiles.userId, users.id))
-        .where(eq(priestProfiles.id, priestId))
-        .limit(1);
-
-      if (!record) {
-        sendSuccess(res, `Priest profile ${priestId} not found.`, null);
+      const priest = await priestService.getPriestById(req.params.id);
+      if (!priest) {
+        sendError(res, `Priest profile ${req.params.id} not found.`, 404);
         return;
       }
-
-      const services = await db
-        .select()
-        .from(priestServices)
-        .where(eq(priestServices.priestId, priestId));
-
-      const formatted = {
-        ...record,
-        isPhoneVerified: true,
-        rating: Number(record.rating || 0),
-        createdAt: record.createdAt ? new Date(record.createdAt).toISOString() : new Date().toISOString(),
-        services,
-      };
-
-      sendSuccess(res, `Priest profile ${priestId} retrieved.`, formatted);
+      sendSuccess(res, `Priest profile ${req.params.id} retrieved.`, priest);
     } catch (error) {
       next(error);
     }
@@ -112,8 +40,12 @@ export class PriestController {
    */
   async getMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Query authenticated priest's profile using req.user.id
-      sendSuccess(res, 'Priest profile details retrieved.', req.user || null);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const profile = await priestService.getMyProfile(req.user.id);
+      sendSuccess(res, 'Priest profile details retrieved.', profile ?? req.user);
     } catch (error) {
       next(error);
     }
@@ -124,8 +56,12 @@ export class PriestController {
    */
   async updateMyProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Update authenticated priest's bio, languages, specializations
-      sendSuccess(res, 'Priest profile updated successfully.', req.user || null);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const updated = await priestService.updatePriestProfile(req.user.id, req.body);
+      sendSuccess(res, 'Priest profile updated successfully.', updated);
     } catch (error) {
       next(error);
     }
@@ -134,10 +70,14 @@ export class PriestController {
   /**
    * GET /api/v1/priests/me/services
    */
-  async getMyServices(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getMyServices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Query priest_services for authenticated priest
-      sendSuccess(res, 'Priest services retrieved.', []);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const services = await priestService.getPriestServices(req.user.id);
+      sendSuccess(res, 'Priest services retrieved.', services);
     } catch (error) {
       next(error);
     }
@@ -146,10 +86,14 @@ export class PriestController {
   /**
    * POST /api/v1/priests/me/services
    */
-  async addService(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async addService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Insert new service offering into priest_services table
-      sendSuccess(res, 'Service offering added.', null, 201);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const service = await priestService.createPriestService(req.user.id, req.body);
+      sendSuccess(res, 'Service offering added.', service, 201);
     } catch (error) {
       next(error);
     }
@@ -160,7 +104,11 @@ export class PriestController {
    */
   async deleteService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Delete service from priest_services table where id = req.params.serviceId
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      await priestService.deletePriestService(req.user.id, req.params.serviceId);
       sendSuccess(res, `Service ${req.params.serviceId} removed.`);
     } catch (error) {
       next(error);
@@ -172,8 +120,8 @@ export class PriestController {
    */
   async updatePriestProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Update priest profile by ID
-      sendSuccess(res, `Priest ${req.params.id} updated.`);
+      const updated = await priestService.updatePriestProfile(req.params.id, req.body);
+      sendSuccess(res, `Priest ${req.params.id} updated.`, updated);
     } catch (error) {
       next(error);
     }
@@ -182,10 +130,10 @@ export class PriestController {
   /**
    * GET /api/v1/priests/:id/services
    */
-  async getPriestServices(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPriestServices(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Query priest_services by priest ID
-      sendSuccess(res, 'Priest services retrieved.', []);
+      const services = await priestService.getPriestServices(req.params.id);
+      sendSuccess(res, 'Priest services retrieved.', services);
     } catch (error) {
       next(error);
     }
@@ -194,10 +142,10 @@ export class PriestController {
   /**
    * POST /api/v1/priests/:id/services
    */
-  async createPriestService(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createPriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Create priest service offering
-      sendSuccess(res, 'Service offering created.', null, 201);
+      const service = await priestService.createPriestService(req.params.id, req.body);
+      sendSuccess(res, 'Service offering created.', service, 201);
     } catch (error) {
       next(error);
     }
@@ -206,10 +154,14 @@ export class PriestController {
   /**
    * PUT /api/v1/priests/:id/services/:serviceId
    */
-  async updatePriestService(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updatePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Update priest service offering
-      sendSuccess(res, 'Service offering updated.');
+      const updated = await priestService.updatePriestService(
+        req.params.id,
+        req.params.serviceId,
+        req.body
+      );
+      sendSuccess(res, 'Service offering updated.', updated);
     } catch (error) {
       next(error);
     }
@@ -218,9 +170,9 @@ export class PriestController {
   /**
    * DELETE /api/v1/priests/:id/services/:serviceId
    */
-  async deletePriestService(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deletePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Delete priest service offering
+      await priestService.deletePriestService(req.params.id, req.params.serviceId);
       sendSuccess(res, 'Service offering removed.');
     } catch (error) {
       next(error);
@@ -230,10 +182,10 @@ export class PriestController {
   /**
    * PATCH /api/v1/priests/:id/services/:serviceId/toggle
    */
-  async togglePriestService(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async togglePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Toggle service active/inactive status
-      sendSuccess(res, 'Service status toggled.');
+      const result = await priestService.togglePriestService(req.params.id, req.params.serviceId);
+      sendSuccess(res, 'Service status toggled.', result);
     } catch (error) {
       next(error);
     }
@@ -242,10 +194,24 @@ export class PriestController {
   /**
    * GET /api/v1/priests/:id/slots
    */
-  async getPriestSlots(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPriestSlots(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Query availability slots for priest
-      sendSuccess(res, 'Availability slots retrieved.', []);
+      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+      const slots = await priestService.getPriestSlots(req.params.id, date);
+      sendSuccess(res, 'Availability slots retrieved.', slots);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/priests/:id/slots/available
+   */
+  async getAvailableSlots(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+      const slots = await priestService.getAvailableSlots(req.params.id, date);
+      sendSuccess(res, 'Available slots retrieved.', slots);
     } catch (error) {
       next(error);
     }
@@ -254,10 +220,10 @@ export class PriestController {
   /**
    * POST /api/v1/priests/:id/slots
    */
-  async createPriestSlot(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createPriestSlot(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Create availability slot
-      sendSuccess(res, 'Slot created successfully.', null, 201);
+      const slot = await priestService.createPriestSlot(req.params.id, req.body);
+      sendSuccess(res, 'Slot created successfully.', slot, 201);
     } catch (error) {
       next(error);
     }
@@ -266,10 +232,14 @@ export class PriestController {
   /**
    * PUT /api/v1/priests/:id/slots/:slotId
    */
-  async updatePriestSlot(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updatePriestSlot(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Update availability slot
-      sendSuccess(res, 'Slot updated successfully.');
+      const updated = await priestService.updatePriestSlot(
+        req.params.id,
+        req.params.slotId,
+        req.body
+      );
+      sendSuccess(res, 'Slot updated successfully.', updated);
     } catch (error) {
       next(error);
     }
@@ -278,9 +248,9 @@ export class PriestController {
   /**
    * DELETE /api/v1/priests/:id/slots/:slotId
    */
-  async deletePriestSlot(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deletePriestSlot(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Priest] Delete availability slot
+      await priestService.deletePriestSlot(req.params.id, req.params.slotId);
       sendSuccess(res, 'Slot deleted successfully.');
     } catch (error) {
       next(error);

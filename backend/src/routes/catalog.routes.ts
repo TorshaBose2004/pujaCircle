@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { catalogController } from '../controllers/catalog.controller.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { createCatalogEntrySchema, updateCatalogEntrySchema } from '../validators/catalog.validator.js';
+import { createCatalogEntrySchema, updateCatalogEntrySchema } from '../schemas/catalog.schema.js';
 
 const router = Router();
 

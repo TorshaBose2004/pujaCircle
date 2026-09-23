@@ -1,20 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
-import { sendSuccess } from '../views/response.view.js';
+import { sendSuccess, sendError } from '../views/response.view.js';
+import { bookingService } from '../services/booking.service.js';
 
 /**
- * [CONTROLLER] Booking Controller (Teammate Skeleton)
- * 
- * Responsibility: Ceremony reservations, lifecycle status transitions, and reviews.
- * Assigned to: Teammate (Booking Module)
+ * [CONTROLLER] Booking Controller
+ * Responsibility: Ceremony reservations, lifecycle status transitions, and devotee reviews.
  */
 export class BookingController {
   /**
    * GET /api/v1/bookings
    */
-  async getBookings(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Query bookings table with optional devotee/priest filters
-      sendSuccess(res, 'Bookings retrieved.', []);
+      const userId = typeof req.query.userId === 'string' ? req.query.userId : undefined;
+      const priestId = typeof req.query.priestId === 'string' ? req.query.priestId : undefined;
+      const bookings = await bookingService.getBookings({ userId, priestId });
+      sendSuccess(res, 'Bookings retrieved.', bookings);
     } catch (error) {
       next(error);
     }
@@ -25,8 +26,8 @@ export class BookingController {
    */
   async getBookingById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Query single booking by id
-      sendSuccess(res, `Booking ${req.params.id} retrieved.`, null);
+      const booking = await bookingService.getBookingById(req.params.id);
+      sendSuccess(res, `Booking ${req.params.id} retrieved.`, booking);
     } catch (error) {
       next(error);
     }
@@ -35,10 +36,15 @@ export class BookingController {
   /**
    * POST /api/v1/bookings
    */
-  async createBooking(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Create booking reservation with PENDING status
-      sendSuccess(res, 'Booking request submitted successfully.', null, 201);
+      const activeUserId = req.user?.id || req.body?.userId;
+      if (!activeUserId) {
+        sendError(res, 'Authentication required to create a booking.', 401);
+        return;
+      }
+      const booking = await bookingService.createBooking(activeUserId, req.body);
+      sendSuccess(res, 'Booking request submitted successfully.', booking, 201);
     } catch (error) {
       next(error);
     }
@@ -49,8 +55,9 @@ export class BookingController {
    */
   async acceptBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Set booking status = 'CONFIRMED'
-      sendSuccess(res, `Booking ${req.params.id} accepted successfully.`);
+      const activePriestId = req.user?.id || req.body?.priestId || '';
+      const result = await bookingService.acceptBooking(req.params.id, activePriestId);
+      sendSuccess(res, `Booking ${req.params.id} accepted successfully.`, result);
     } catch (error) {
       next(error);
     }
@@ -61,8 +68,13 @@ export class BookingController {
    */
   async rejectBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Set booking status = 'REJECTED' with reason
-      sendSuccess(res, `Booking ${req.params.id} declined.`);
+      const activePriestId = req.user?.id || req.body?.priestId || '';
+      const result = await bookingService.rejectBooking(
+        req.params.id,
+        activePriestId,
+        req.body?.reason
+      );
+      sendSuccess(res, `Booking ${req.params.id} declined.`, result);
     } catch (error) {
       next(error);
     }
@@ -73,8 +85,13 @@ export class BookingController {
    */
   async cancelBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Set booking status = 'CANCELLED' with reason
-      sendSuccess(res, `Booking ${req.params.id} cancelled successfully.`);
+      const activeUserId = req.user?.id || req.body?.userId || '';
+      const result = await bookingService.cancelBooking(
+        req.params.id,
+        activeUserId,
+        req.body?.reason
+      );
+      sendSuccess(res, `Booking ${req.params.id} cancelled successfully.`, result);
     } catch (error) {
       next(error);
     }
@@ -85,8 +102,13 @@ export class BookingController {
    */
   async completeBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Set booking status = 'COMPLETED'
-      sendSuccess(res, `Ceremony ${req.params.id} marked as completed.`);
+      const activePriestId = req.user?.id || req.body?.priestId || '';
+      const result = await bookingService.completeBooking(
+        req.params.id,
+        activePriestId,
+        req.body?.completionCode
+      );
+      sendSuccess(res, `Ceremony ${req.params.id} marked as completed.`, result);
     } catch (error) {
       next(error);
     }
@@ -95,10 +117,11 @@ export class BookingController {
   /**
    * POST /api/v1/ratings
    */
-  async submitRating(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async submitRating(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // TODO: [Teammate - Booking] Insert rating and feedback into reviews/ratings table
-      sendSuccess(res, 'Devotee rating submitted with blessings.', null, 201);
+      const activeUserId = req.user?.id || req.body?.userId || '';
+      const result = await bookingService.submitRating(activeUserId, req.body);
+      sendSuccess(res, 'Devotee rating submitted with blessings.', result, 201);
     } catch (error) {
       next(error);
     }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * [VALIDATOR] Catalog Schemas
+ * [SCHEMA] Catalog Schemas
  * Strict validation bounds for sacred ceremonies in the Puja catalog.
  */
 export const createCatalogEntrySchema = z.object({
@@ -13,6 +13,7 @@ export const createCatalogEntrySchema = z.object({
   samagriList: z.array(z.string().trim().max(255)).default([]),
   steps: z.array(z.string().trim().max(500)).default([]),
   timingNote: z.string().trim().max(500).default(''),
+  coverImage: z.string().optional(),
   isActive: z.boolean().default(true),
 });
 

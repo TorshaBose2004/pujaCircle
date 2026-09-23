@@ -1,6 +1,6 @@
 import { eq, or } from 'drizzle-orm';
 import { supabase, supabaseAdmin } from '../config/supabase.js';
-import { db } from '../config/db.js';
+import { db } from '../db/index.js';
 import { users } from '../models/user.model.js';
 import { priestProfiles } from '../models/priest.model.js';
 import { addresses } from '../models/address.model.js';
@@ -15,7 +15,7 @@ import {
   VerifyEmailOtpInput,
   ForgotPasswordInput,
   ResetPasswordInput,
-} from '../validators/auth.validator.js';
+} from '../schemas/auth.schema.js';
 
 export interface AuthResult {
   user: UserViewModel;

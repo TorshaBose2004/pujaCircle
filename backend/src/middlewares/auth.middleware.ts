@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { eq } from 'drizzle-orm';
 import { supabase } from '../config/supabase.js';
-import { db } from '../config/db.js';
+import { db } from '../db/index.js';
 import { users } from '../models/user.model.js';
 import { sendError } from '../views/response.view.js';
 import { AuthUserContext } from '../types/express.js';

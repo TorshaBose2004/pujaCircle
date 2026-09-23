@@ -25,10 +25,10 @@ const envSchema = z.object({
   COOKIE_SECRET: z.string().default('default-cookie-secret-key'),
   CLIENT_URL: z.string().default('http://localhost:5173'),
 
-  // ImageKit
-  IMAGEKIT_PUBLIC_KEY: z.string().default('placeholder-imagekit-public-key'),
-  IMAGEKIT_PRIVATE_KEY: z.string().default('placeholder-imagekit-private-key'),
-  IMAGEKIT_URL_ENDPOINT: z.string().default('https://ik.imagekit.io/pujacircle'),
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: z.string().default('placeholder-cloudinary-cloud-name'),
+  CLOUDINARY_API_KEY: z.string().default('placeholder-cloudinary-api-key'),
+  CLOUDINARY_API_SECRET: z.string().default('placeholder-cloudinary-api-secret'),
 
   // Brevo (Sendinblue) Transactional REST API Email
   BREVO_API_KEY: z.string().optional(),
