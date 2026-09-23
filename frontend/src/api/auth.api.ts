@@ -24,7 +24,7 @@ export const authApi = {
       const res = await apiClient.post('/auth/login', credentials);
       return res as any;
     } catch (error) {
-      logAppError('authApi.login', error, { identifier: credentials.identifier || credentials.phoneNumber || credentials.email });
+      logAppError('authApi.login', error, { email: credentials.email });
       return {
         success: false,
         message: getUserFriendlyErrorMessage(error, 'Sign in failed. Please verify your credentials and try again.'),

@@ -99,12 +99,18 @@ export const ForgotPasswordCard: React.FC<ForgotPasswordCardProps> = ({
     setError(null);
     setIsLoading(true);
     try {
-      const res = await authApi.forgotPassword({ email: data.email.trim().toLowerCase() });
+      const res = await authApi.forgotPassword({
+        email: data.email.trim().toLowerCase(),
+      });
       if (res.success) {
         toast.info(`Recovery OTP sent to ${data.email}.`);
-        navigate(`${roleConfig.reset}?email=${encodeURIComponent(data.email.trim().toLowerCase())}`);
+        navigate(
+          `${roleConfig.reset}?email=${encodeURIComponent(data.email.trim().toLowerCase())}`,
+        );
       } else {
-        setError(res.message || "Failed to dispatch recovery code. Please try again.");
+        setError(
+          res.message || "Failed to dispatch recovery code. Please try again.",
+        );
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -212,7 +218,7 @@ export const ForgotPasswordCard: React.FC<ForgotPasswordCardProps> = ({
                   <Mail className="absolute left-3.5 top-3 h-4 w-4 text-stone-500" />
                   <Input
                     type="email"
-                    placeholder="name@example.com"
+                    placeholder="Enter your email..."
                     {...register("email")}
                     className="pl-10 text-xs h-11 rounded-md border-amber-300 focus-visible:ring-red-700"
                   />

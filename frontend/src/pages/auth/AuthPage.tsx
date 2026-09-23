@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { phoneLoginSchema, adminLoginSchema, UserLoginInput, AdminLoginInput } from '@/schemas/auth.schema';
+import { userLoginSchema, adminLoginSchema, UserLoginInput, AdminLoginInput } from '@/schemas/auth.schema';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,9 +79,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     reset: resetLogin,
     formState: { errors: loginErrors },
   } = useForm<UserLoginInput>({
-    resolver: zodResolver(phoneLoginSchema),
+    resolver: zodResolver(userLoginSchema),
     defaultValues: {
-      identifier: '',
+      email: '',
       password: '',
     },
   });
@@ -103,16 +103,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setActiveTab(tab);
     setIsRegister(false);
     clearError();
-    resetLogin({ identifier: '', password: '' });
+    resetLogin({ email: '', password: '' });
   };
 
   // Submit Login for Devotee / Priest
   const onLogin = async (data: UserLoginInput) => {
     clearError();
-    const identifier = data.identifier.trim();
+    const email = data.email.trim();
 
     const success = await login({
-      identifier,
+      email,
       password: data.password,
     });
 
@@ -134,7 +134,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const onStaffLogin = async (data: AdminLoginInput) => {
     clearError();
     const success = await login({
-      identifier: data.email.trim(),
+      email: data.email.trim(),
       password: data.password,
     });
 
@@ -527,20 +527,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <form onSubmit={handleLoginSubmit(onLogin)} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-stone-700">
-                    Email Address or Mobile Number
+                    Email Address
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-3 h-4 w-4 text-stone-400" />
                     <Input
-                      type="text"
-                      placeholder={activeTab === 'priest' ? 'schakra@pujaCircle.com or 9831987654' : 'arnab@pujaCircle.com or 9830123456'}
-                      {...registerLogin('identifier')}
+                      type="email"
+                      placeholder={activeTab === 'priest' ? 'schakra@pujacircle.com' : 'arnab@pujacircle.com'}
+                      {...registerLogin('email')}
                       className="pl-10 text-xs h-10 border-stone-300 focus:ring-amber-500"
                     />
                   </div>
-                  {loginErrors.identifier && (
+                  {loginErrors.email && (
                     <p className="text-[11px] text-red-600 font-medium">
-                      {loginErrors.identifier.message}
+                      {loginErrors.email.message}
                     </p>
                   )}
                 </div>

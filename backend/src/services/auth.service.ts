@@ -31,8 +31,8 @@ interface StoredOtp {
 // In-memory dynamic OTP repository (TTL 10 mins)
 const dynamicOtpStore = new Map<string, StoredOtp>();
 
-const generateDynamicOtp = (identifier: string): string => {
-  const cleanId = identifier.trim().toLowerCase();
+const generateDynamicOtp = (destination: string): string => {
+  const cleanId = destination.trim().toLowerCase();
   // Cryptographically random 6-digit number
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   dynamicOtpStore.set(cleanId, {
@@ -42,7 +42,7 @@ const generateDynamicOtp = (identifier: string): string => {
   });
 
   console.log('\n============================================================');
-  console.log(`[OTP DISPATCH] Destination: ${identifier}`);
+  console.log(`[OTP DISPATCH] Destination: ${destination}`);
   console.log(`[OTP DISPATCH] Dynamic Verification Code: ${code}`);
   console.log(`[OTP DISPATCH] Valid for: 10 minutes`);
   console.log('============================================================\n');
@@ -50,8 +50,8 @@ const generateDynamicOtp = (identifier: string): string => {
   return code;
 };
 
-const verifyStoredOtp = (identifier: string, code: string): boolean => {
-  const cleanId = identifier.trim().toLowerCase();
+const verifyStoredOtp = (destination: string, code: string): boolean => {
+  const cleanId = destination.trim().toLowerCase();
   const entry = dynamicOtpStore.get(cleanId);
   if (!entry) return false;
 
@@ -80,38 +80,10 @@ const verifyStoredOtp = (identifier: string, code: string): boolean => {
  */
 export class AuthService {
   /**
-   * Authenticate a user with email/phone and password
+   * Authenticate a user with email and password
    */
   async login(input: LoginInput): Promise<AuthResult> {
-    const rawIdentifier = input.identifier || input.email || input.phoneNumber || '';
-    const isEmail = rawIdentifier.includes('@');
-
-    let targetEmail = rawIdentifier;
-
-    // If identifier is a phone number, look up user's registered email in PostgreSQL
-    if (!isEmail) {
-      const cleanDigits = rawIdentifier.replace(/\D/g, '');
-      const phone10 = cleanDigits.slice(-10);
-
-      const [dbUser] = await db
-        .select()
-        .from(users)
-        .where(
-          or(
-            eq(users.phoneNumber, rawIdentifier),
-            eq(users.phoneNumber, phone10),
-            eq(users.phoneNumber, `+91${phone10}`),
-            eq(users.phoneNumber, `+91 ${phone10}`)
-          )
-        )
-        .limit(1);
-
-      if (!dbUser || !dbUser.email) {
-        throw { statusCode: 401, message: 'No registered account found with this phone number.' };
-      }
-
-      targetEmail = dbUser.email;
-    }
+    const targetEmail = input.email.trim().toLowerCase();
 
     // 1. Sign in against Supabase Auth
     let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -140,7 +112,7 @@ export class AuthService {
     if (authError || !authData.user) {
       throw {
         statusCode: 401,
-        message: authError?.message || 'Invalid credentials. Please verify your email/phone and password.',
+        message: authError?.message || 'Invalid credentials. Please verify your email and password.',
       };
     }
 

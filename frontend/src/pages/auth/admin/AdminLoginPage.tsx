@@ -44,7 +44,7 @@ export const AdminLoginPage: React.FC = () => {
   const onLogin = async (data: AdminLoginInput) => {
     clearError();
     const success = await login({
-      identifier: data.email.trim(),
+      email: data.email.trim(),
       password: data.password,
     });
 
@@ -53,7 +53,6 @@ export const AdminLoginPage: React.FC = () => {
       navigate("/admin/dashboard");
     }
   };
-
 
   return (
     <div className="w-full min-h-[calc(100vh-140px)] flex items-center justify-center py-8 sm:py-12 px-4">
@@ -156,7 +155,7 @@ export const AdminLoginPage: React.FC = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@pujaCircle.com"
+                    placeholder="Enter your email..."
                     {...register("email")}
                     className="pl-9 h-11 text-sm border-stone-300 focus-visible:ring-amber-500"
                   />
@@ -180,7 +179,7 @@ export const AdminLoginPage: React.FC = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter staff security password"
+                    placeholder="Enter your password..."
                     {...register("password")}
                     className="pl-9 pr-10 h-11 text-sm border-stone-300 focus-visible:ring-amber-500"
                   />

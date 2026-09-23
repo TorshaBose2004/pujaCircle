@@ -229,12 +229,12 @@ npm run build
 
 ## 🔑 Demo Access Credentials
 
-| Role | Login Identifier | Password | Access Portal | Redirect Path |
+| Role | Email Address | Password | Access Portal | Redirect Path |
 | :--- | :--- | :--- | :--- | :--- |
-| **Devotee** | `+919876543210` | `User@123` | `/login` (Devotee Tab) | `/user/home` |
-| **Purohit (Approved)** | `+919876543211` | `Priest@123` | `/login` (Priest Tab) | `/priest/dashboard` |
-| **Purohit (Pending)** | `+919876543213` | `Priest@123` | `/login` (Priest Tab) | `/priest/pending-approval` |
-| **Administrator** | `admin@pujacircle.demo` | `Admin@123` | `/login` (Staff Panel) | `/admin/dashboard` |
+| **Devotee** | `devotee@pujacircle.com` | `User@123` | `/user/login` (Devotee) | `/user/home` |
+| **Purohit (Approved)** | `priest@pujacircle.com` | `Priest@123` | `/priest/login` (Purohit) | `/priest/dashboard` |
+| **Purohit (Pending)** | `priest.pending@pujacircle.com` | `Priest@123` | `/priest/login` (Purohit) | `/priest/pending-approval` |
+| **Administrator** | `admin@pujacircle.com` | `Admin@123` | `/admin/login` (Staff) | `/admin/dashboard` |
 
 ---
 

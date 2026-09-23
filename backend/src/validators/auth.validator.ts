@@ -8,17 +8,10 @@ import { z } from 'zod';
 // Phone number validator: Allows +91 prefix or 10-digit format
 const phoneRegex = /^(\+91[\-\s]?)?[6-9]\d{9}$/;
 
-export const loginSchema = z
-  .object({
-    identifier: z.string().optional(),
-    email: z.string().email('Invalid email address').optional(),
-    phoneNumber: z.string().optional(),
-    password: z.string().min(6, 'Password must be at least 6 characters long'),
-  })
-  .refine((data) => data.identifier || data.email || data.phoneNumber, {
-    message: 'Please provide either an email, phone number, or identifier.',
-    path: ['identifier'],
-  });
+export const loginSchema = z.object({
+  email: z.string().trim().email('Invalid email address').max(255),
+  password: z.string().min(6, 'Password must be at least 6 characters long'),
+});
 
 export const registerAddressSchema = z.object({
   houseNo: z.string().trim().min(1, 'House/Flat number is required').max(100),

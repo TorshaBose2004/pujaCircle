@@ -10,26 +10,16 @@ const numericOtpRegex = /^\d{6}$/;
 
 export const userLoginSchema = z
   .object({
-    identifier: z
+    email: z
       .string()
       .trim()
-      .min(3, 'Please enter your email or mobile number')
-      .max(150, 'Input is too long')
-      .refine(
-        (val) => {
-          if (val.includes('@')) {
-            return z.string().email().safeParse(val).success;
-          }
-          const digits = val.replace(/\D/g, '');
-          return digits.length >= 10 && digits.length <= 13;
-        },
-        { message: 'Enter a valid email address or 10-digit mobile number' }
-      ),
+      .min(1, 'Please enter your email address')
+      .email('Please enter a valid email address')
+      .max(150, 'Email is too long'),
     password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password is too long'),
   })
   .strict();
 
-export const phoneLoginSchema = userLoginSchema;
 export const priestLoginSchema = userLoginSchema;
 
 export const adminLoginSchema = z

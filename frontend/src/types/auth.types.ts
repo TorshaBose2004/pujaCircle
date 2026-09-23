@@ -14,9 +14,7 @@ export interface AuthUser {
 }
 
 export interface LoginCredentials {
-  identifier?: string; // +91 phone number for USER & PRIEST, or email for ADMIN
-  email?: string;
-  phoneNumber?: string;
+  email: string;
   password: string;
 }
 

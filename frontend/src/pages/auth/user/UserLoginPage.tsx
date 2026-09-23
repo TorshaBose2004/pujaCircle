@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { phoneLoginSchema, UserLoginInput } from "@/schemas/auth.schema";
+import { userLoginSchema, UserLoginInput } from "@/schemas/auth.schema";
 import { useAuthStore } from "@/store/auth.store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,23 +32,23 @@ export const UserLoginPage: React.FC = () => {
     watch,
     formState: { errors },
   } = useForm<UserLoginInput>({
-    resolver: zodResolver(phoneLoginSchema),
+    resolver: zodResolver(userLoginSchema),
     defaultValues: {
-      identifier: "",
+      email: "",
       password: "",
     },
   });
 
-  const watchIdentifier = watch("identifier");
+  const watchEmail = watch("email");
   const watchPassword = watch("password");
-  const isFormValid = Boolean(watchIdentifier?.trim() && watchPassword?.trim());
+  const isFormValid = Boolean(watchEmail?.trim() && watchPassword?.trim());
 
   const onLogin = async (data: UserLoginInput) => {
     clearError();
-    const identifier = data.identifier.trim();
+    const email = data.email.trim();
 
     const success = await login({
-      identifier,
+      email,
       password: data.password,
     });
 
@@ -69,7 +69,6 @@ export const UserLoginPage: React.FC = () => {
       }
     }
   };
-
 
   return (
     <div className="w-full min-h-[calc(100vh-140px)] flex items-center justify-center py-8 sm:py-12 px-4">
@@ -175,24 +174,24 @@ export const UserLoginPage: React.FC = () => {
             <form onSubmit={handleSubmit(onLogin)} className="space-y-4">
               <div className="space-y-1.5">
                 <Label
-                  htmlFor="identifier"
+                  htmlFor="email"
                   className="text-xs font-semibold text-stone-800"
                 >
-                  Email Address or Registered Mobile
+                  Email Address
                 </Label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
                   <Input
-                    id="identifier"
-                    type="text"
-                    placeholder="arnab@pujaCircle.com or 9830123456"
-                    {...register("identifier")}
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email..."
+                    {...register("email")}
                     className="pl-9 h-11 text-sm border-stone-300 focus-visible:ring-amber-500"
                   />
                 </div>
-                {errors.identifier && (
+                {errors.email && (
                   <p className="text-xs text-red-600">
-                    {errors.identifier.message}
+                    {errors.email.message}
                   </p>
                 )}
               </div>
@@ -217,7 +216,7 @@ export const UserLoginPage: React.FC = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder="Enter your password..."
                     {...register("password")}
                     className="pl-9 pr-10 h-11 text-sm border-stone-300 focus-visible:ring-amber-500"
                   />
