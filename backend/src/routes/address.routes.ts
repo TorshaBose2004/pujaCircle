@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { addressController } from '../controllers/address.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { createAddressSchema, updateAddressSchema } from '../validators/address.validator.js';
 
 const router = Router();
 
@@ -9,9 +11,10 @@ const router = Router();
  * Devotee addresses for ceremonial ceremonies.
  */
 router.get('/', addressController.getAddresses);
-router.post('/', requireAuth, addressController.createAddress);
-router.put('/:id', requireAuth, addressController.updateAddress);
+router.post('/', requireAuth, validate(createAddressSchema), addressController.createAddress);
+router.put('/:id', requireAuth, validate(updateAddressSchema), addressController.updateAddress);
 router.delete('/:id', requireAuth, addressController.deleteAddress);
 router.patch('/:id/default', requireAuth, addressController.setDefaultAddress);
 
 export const addressRoutes = router;
+

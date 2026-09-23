@@ -39,7 +39,7 @@ import { toast } from "sonner";
  */
 export const UserRegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
+  const { setUser, setToken } = useAuthStore();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showPassword, setShowPassword] = useState(false);
@@ -74,11 +74,9 @@ export const UserRegisterPage: React.FC = () => {
     watchPassword.length >= 6,
   );
 
-  // Step 2: OTP verification state
-  const [phoneOtp, setPhoneOtp] = useState("");
+  // Step 2: OTP verification state (Email OTP only)
   const [emailOtp, setEmailOtp] = useState("");
-  const isStep2Valid =
-    phoneOtp.trim().length === 6 && emailOtp.trim().length === 6;
+  const isStep2Valid = emailOtp.trim().length === 6;
 
   // Step 3: Address setup state
   const [pincode, setPincode] = useState("");
@@ -98,46 +96,35 @@ export const UserRegisterPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Step 1: Proceed to OTPs after Zod validation with real dynamic dispatch
+  // Step 1: Proceed to Email OTP verification
   const onPersonalSubmit = async () => {
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const { phoneNumber, email } = getValues();
-      await authApi.sendPhoneOtp({ phoneNumber });
+      const { email } = getValues();
       await authApi.sendEmailOtp({ email });
 
       setStep(2);
-      toast.info("Verification codes dispatched to your phone and email.");
+      toast.info("Verification code dispatched to your email address.");
     } catch {
-      setErrorMessage("Failed to dispatch verification codes. Please try again.");
+      setErrorMessage("Failed to dispatch verification code. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Step 2: Validate both Phone and Email OTPs dynamically
+  // Step 2: Validate Email OTP
   const handleVerifyOtpStep = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (phoneOtp.trim().length !== 6 || emailOtp.trim().length !== 6) {
-      setErrorMessage("Please enter both 6-digit phone and email verification codes.");
+    if (emailOtp.trim().length !== 6) {
+      setErrorMessage("Please enter the 6-digit email verification code.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const phoneRes = await authApi.verifyPhoneOtp({
-        phoneNumber: getValues().phoneNumber,
-        otp: phoneOtp.trim(),
-      });
-
-      if (!phoneRes.success) {
-        setErrorMessage(phoneRes.message || "Invalid phone verification code.");
-        return;
-      }
-
       const emailRes = await authApi.verifyEmailOtp({
         email: getValues().email,
         otp: emailOtp.trim(),
@@ -149,24 +136,23 @@ export const UserRegisterPage: React.FC = () => {
       }
 
       setStep(3);
-      toast.success("Phone and Email verified successfully!");
+      toast.success("Email verified successfully!");
     } catch {
-      setErrorMessage("Verification failed. Please check your verification codes and try again.");
+      setErrorMessage("Verification failed. Please check your verification code and try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Resend fresh dynamic OTPs
+  // Resend fresh email OTP
   const handleResendOtp = async () => {
     try {
-      const { phoneNumber, email } = getValues();
-      await authApi.sendPhoneOtp({ phoneNumber });
+      const { email } = getValues();
       await authApi.sendEmailOtp({ email });
 
-      toast.info("Fresh verification codes dispatched to your phone and email.");
+      toast.info("Fresh verification code dispatched to your email.");
     } catch {
-      toast.error("Failed to resend verification codes.");
+      toast.error("Failed to resend verification code.");
     }
   };
 
@@ -225,6 +211,9 @@ export const UserRegisterPage: React.FC = () => {
       });
 
       if (res.success && res.data?.user) {
+        if (res.data.token) {
+          setToken(res.data.token);
+        }
         setUser(res.data.user);
         toast.success("Registration successful! Welcome to PujaCircle.");
         navigate("/user/home");
@@ -554,29 +543,10 @@ export const UserRegisterPage: React.FC = () => {
               </form>
             )}
 
-            {/* ================= STEP 2: Phone & Email OTP ================= */}
+            {/* ================= STEP 2: Email OTP ================= */}
             {step === 2 && (
               <form onSubmit={handleVerifyOtpStep} className="space-y-4">
                 <div className="space-y-3.5">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-xs font-bold text-stone-800">
-                        Mobile Verification Code
-                      </Label>
-                      <span className="text-[10px] text-stone-500 font-medium">
-                        Sent to {getValues("phoneNumber")}
-                      </span>
-                    </div>
-                    <Input
-                      maxLength={6}
-                      placeholder="Enter 6-digit phone OTP"
-                      value={phoneOtp}
-                      onChange={(e) => setPhoneOtp(e.target.value)}
-                      className="font-mono text-center tracking-widest text-sm h-11 rounded-md border-amber-300 focus-visible:ring-red-700"
-                      required
-                    />
-                  </div>
-
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center">
                       <Label className="text-xs font-bold text-stone-800">

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { adminController } from '../controllers/admin.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import { requireAdmin } from '../middlewares/role.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { adminActionReasonSchema } from '../validators/admin.validator.js';
 
 const router = Router();
 
@@ -19,16 +21,15 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 router.get('/priests', adminController.getAllPriests);
 router.get('/priests/pending', adminController.getPendingPriests);
 router.post('/priests/:id/approve', adminController.approvePriest);
-router.post('/priests/:id/reject', adminController.rejectPriest);
-router.post('/priests/:id/ban', adminController.banPriest);
+router.post('/priests/:id/reject', validate(adminActionReasonSchema), adminController.rejectPriest);
+router.post('/priests/:id/ban', validate(adminActionReasonSchema), adminController.banPriest);
 router.post('/priests/:id/unban', adminController.unbanPriest);
 router.post('/priests/:id/reopen', adminController.reopenPriestApplication);
 
 // Devotee Moderation
 router.get('/users', adminController.getAllUsers);
-router.post('/users/:id/suspend', adminController.suspendUser);
+router.post('/users/:id/suspend', validate(adminActionReasonSchema), adminController.suspendUser);
 router.post('/users/:id/unsuspend', adminController.unsuspendUser);
 
-
-
 export const adminRoutes = router;
+

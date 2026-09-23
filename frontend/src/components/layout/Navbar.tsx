@@ -3,15 +3,6 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Sheet,
   SheetContent,
   SheetTrigger,
@@ -40,6 +31,23 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const profileDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
 
   // Authenticated devotee state
   const isDevotee = isAuthenticated && user?.role === 'USER';
@@ -48,6 +56,7 @@ export const Navbar: React.FC = () => {
   const handleLogout = () => {
     logout();
     setMobileMenuOpen(false);
+    setProfileDropdownOpen(false);
     navigate('/');
   };
 
@@ -123,72 +132,92 @@ export const Navbar: React.FC = () => {
         {/* Right Actions & Authentication Menu */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {isDevotee && user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1.5 sm:gap-2 pl-1.5 pr-2.5 sm:pr-3 py-1.5 h-9 rounded-md border border-amber-300 bg-white text-stone-900 shadow-xs hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer"
-                >
-                  <Avatar className="h-6 w-6 ring-1 ring-amber-400 bg-amber-50 shrink-0">
-                    <AvatarImage src={user.avatarUrl} alt={user.name} />
-                    <AvatarFallback className="text-[11px] font-serif font-bold text-red-800 bg-amber-100">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="truncate font-semibold text-xs text-stone-900 max-w-28 sm:max-w-36">
-                    {user.name}
-                  </span>
-                  <ChevronDown className="h-3 w-3 text-stone-500 opacity-70 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
+            <div className="relative" ref={profileDropdownRef}>
+              <button
+                type="button"
+                id="navbar-profile-dropdown-btn"
+                onClick={() => setProfileDropdownOpen((prev) => !prev)}
+                className="flex items-center gap-1.5 sm:gap-2 pl-1.5 pr-2.5 sm:pr-3 py-1.5 h-9 rounded-md border border-amber-300 bg-white text-stone-900 shadow-xs hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer select-none focus:outline-hidden focus:ring-2 focus:ring-amber-500/20"
+                aria-haspopup="true"
+                aria-expanded={profileDropdownOpen}
+              >
+                <Avatar className="h-6 w-6 ring-1 ring-amber-400 bg-amber-50 shrink-0">
+                  <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  <AvatarFallback className="text-[11px] font-serif font-bold text-red-800 bg-amber-100">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate font-semibold text-xs text-stone-900 max-w-28 sm:max-w-36">
+                  {user.name}
+                </span>
+                <ChevronDown className={cn("h-3 w-3 text-stone-500 opacity-70 shrink-0 transition-transform duration-200", profileDropdownOpen && "rotate-180")} />
+              </button>
 
-              <DropdownMenuContent align="end" className="w-56 p-1.5 bg-white border-2 border-amber-300 shadow-xl rounded-lg">
-                <DropdownMenuLabel className="font-normal px-2 py-1.5">
-                  <div className="flex flex-col space-y-0.5">
+              {profileDropdownOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1.5 w-56 p-1.5 bg-white border-2 border-amber-300 shadow-xl rounded-lg z-50 animate-in fade-in-0 zoom-in-95"
+                  role="menu"
+                >
+                  <div className="px-2 py-1.5">
                     <p className="text-xs font-bold font-serif text-stone-900 truncate">{user.name}</p>
                     <p className="text-[11px] text-stone-500 truncate">{user.phoneNumber || user.email}</p>
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-amber-100 my-1" />
+                  <div className="h-px bg-amber-100 my-1" />
 
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => navigate('/user/profile')}
-                    className="flex items-center gap-2.5 text-xs py-2 px-2 cursor-pointer rounded-sm hover:bg-amber-50 focus:bg-amber-50 text-stone-800"
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        navigate('/user/profile');
+                      }}
+                      className="w-full flex items-center gap-2.5 text-xs py-2 px-2 cursor-pointer rounded-sm hover:bg-amber-50 text-stone-800 transition-colors text-left"
+                    >
+                      <User className="h-3.5 w-3.5 text-stone-700 shrink-0" />
+                      <span>Profile</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        navigate('/user/addresses');
+                      }}
+                      className="w-full flex items-center gap-2.5 text-xs py-2 px-2 cursor-pointer rounded-sm hover:bg-amber-50 text-stone-800 transition-colors text-left"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      <span>My Addresses</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        navigate('/user/bookings');
+                      }}
+                      className="w-full flex items-center gap-2.5 text-xs py-2 px-2 cursor-pointer rounded-sm hover:bg-amber-50 text-stone-800 transition-colors text-left"
+                    >
+                      <Calendar className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                      <span>My Bookings</span>
+                    </button>
+                  </div>
+
+                  <div className="h-px bg-amber-100 my-1" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center gap-2.5 text-xs py-2 px-2 text-red-700 hover:bg-red-50 cursor-pointer rounded-sm font-semibold transition-colors text-left"
                   >
-                    <User className="h-3.5 w-3.5 text-stone-700" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem
-                    onClick={() => navigate('/user/addresses')}
-                    className="flex items-center gap-2.5 text-xs py-2 px-2 cursor-pointer rounded-sm hover:bg-amber-50 focus:bg-amber-50 text-stone-800"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-amber-600" />
-                    <span>My Addresses</span>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem
-                    onClick={() => navigate('/user/bookings')}
-                    className="flex items-center gap-2.5 text-xs py-2 px-2 cursor-pointer rounded-sm hover:bg-amber-50 focus:bg-amber-50 text-stone-800"
-                  >
-                    <Calendar className="h-3.5 w-3.5 text-amber-700" />
-                    <span>My Bookings</span>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-
-                <DropdownMenuSeparator className="bg-amber-100 my-1" />
-
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="flex items-center gap-2.5 text-xs py-2 px-2 text-red-700 focus:bg-red-50 cursor-pointer rounded-sm font-semibold"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span>Sign Out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <LogOut className="h-3.5 w-3.5 shrink-0" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="hidden sm:flex items-center">
               <Link to="/user/login">

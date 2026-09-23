@@ -160,6 +160,30 @@ export class AuthController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/v1/auth/forgot-password
+   */
+  async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.forgotPassword(req.body);
+      sendSuccess(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/reset-password
+   */
+  async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.resetPassword(req.body);
+      sendSuccess(res, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const authController = new AuthController();
