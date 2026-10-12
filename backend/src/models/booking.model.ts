@@ -1,6 +1,6 @@
 import { pgTable, uuid, integer, timestamp, pgEnum, text, varchar } from 'drizzle-orm/pg-core';
 import { users } from './user.model.js';
-import { priestProfiles, priestServices, priestSlots } from './priest.model.js';
+import { priestProfiles, priestServices } from './priest.model.js';
 import { addresses } from './address.model.js';
 import { pujaCatalog } from './catalog.model.js';
 
@@ -28,7 +28,7 @@ export const bookings = pgTable('bookings', {
   priestServiceId: uuid('priest_service_id').references(() => priestServices.id),
   pujaCatalogId: uuid('puja_catalog_id').references(() => pujaCatalog.id),
   addressId: uuid('address_id').references(() => addresses.id),
-  slotId: uuid('slot_id').references(() => priestSlots.id),
+  slotId: uuid('slot_id'),
   serviceName: varchar('service_name', { length: 255 }).default('Puja Ceremony').notNull(),
   servicePrice: integer('service_price').notNull(), // INR amount in rupees (₹)
   totalPrice: integer('total_price').notNull(), // INR amount in rupees (₹)

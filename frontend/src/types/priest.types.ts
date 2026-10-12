@@ -1,7 +1,6 @@
 import { AccountStatus } from './auth.types';
 
 export type PriestApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-export type SlotStatus = 'AVAILABLE' | 'BOOKED' | 'BLOCKED';
 
 export interface PriestService {
   id: string;
@@ -40,6 +39,8 @@ export interface Priest {
   profileImageUrl: string;
   rating?: number;
   reviewCount?: number;
+  defaultStartTime?: string;
+  defaultEndTime?: string;
   services?: PriestService[];
   createdAt: string;
   updatedAt?: string;
@@ -57,23 +58,7 @@ export interface Ritual {
   suggestedDakshina?: number;
 }
 
-/**
- * Direct Date-Based Priest Availability Slot
- */
-export interface PriestSlot {
-  id: string;
-  priestId: string;
-  slotDate: string; // YYYY-MM-DD
-  date?: string; // Backward compatibility alias (same as slotDate)
-  startTime: string; // HH:mm (24-hour)
-  endTime: string; // HH:mm (24-hour)
-  status: SlotStatus;
-  bookingId?: string;
-  ruleId?: string;
-  isException?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
+
 
 /**
  * Legacy interfaces kept for backward-compatibility
@@ -89,6 +74,19 @@ export interface WeeklyAvailabilityRule {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
+}
+
+export type PriestExceptionType = 'BLOCK' | 'CUSTOM_HOURS';
+
+export interface PriestAvailabilityException {
+  id: string;
+  priestId: string;
+  exceptionType: PriestExceptionType;
+  startAt: string;
+  endAt: string;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AvailabilityException {

@@ -1,19 +1,21 @@
-import { eq, or, and, asc } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { users, priestProfiles, priestServices, priestSlots } from '../models/index.js';
+import { users, priestProfiles, priestServices } from '../models/index.js';
 import {
   UpdatePriestProfileInput,
   CreatePriestServiceInput,
   UpdatePriestServiceInput,
-  CreatePriestSlotInput,
   PriestFilterParams,
+  CreatePriestAvailabilityExceptionInput,
+  UpdatePriestAvailabilityExceptionInput,
+  PriestWorkingHoursInput,
 } from '../schemas/priest.schema.js';
 import { cloudinaryService } from './cloudinary.service.js';
 
 
 /**
  * [SERVICE] Priest Service
- * Handles verified purohit directory, profile configuration, service pricing, and calendar slots.
+ * Handles verified purohit directory, profile configuration, service pricing, and availability exceptions.
  */
 export class PriestService {
   /**
@@ -41,6 +43,8 @@ export class PriestService {
         profileImageUrl: priestProfiles.profileImageUrl,
         rating: priestProfiles.rating,
         reviewCount: priestProfiles.reviewCount,
+        defaultStartTime: priestProfiles.defaultStartTime,
+        defaultEndTime: priestProfiles.defaultEndTime,
         createdAt: priestProfiles.createdAt,
       })
       .from(priestProfiles)
@@ -81,6 +85,8 @@ export class PriestService {
         profileImageUrl: priestProfiles.profileImageUrl,
         rating: priestProfiles.rating,
         reviewCount: priestProfiles.reviewCount,
+        defaultStartTime: priestProfiles.defaultStartTime,
+        defaultEndTime: priestProfiles.defaultEndTime,
         createdAt: priestProfiles.createdAt,
         updatedAt: priestProfiles.updatedAt,
       })
@@ -182,75 +188,76 @@ export class PriestService {
     return null;
   }
 
-  /**
-   * Query availability slots for a priest on a given date or range
-   */
-  async getPriestSlots(priestId: string, date?: string): Promise<any[]> {
-    const priest = await this.getPriestById(priestId);
-    if (!priest) return [];
-
-    const records = await db
-      .select()
-      .from(priestSlots)
-      .where(
-        date
-          ? and(eq(priestSlots.priestId, priest.id), eq(priestSlots.slotDate, date))
-          : eq(priestSlots.priestId, priest.id)
-      )
-      .orderBy(asc(priestSlots.slotDate), asc(priestSlots.startTime));
-
-    return records.map((s) => ({
-      ...s,
-      date: s.slotDate,
-    }));
-  }
 
   /**
-   * Query only available (unbooked) slots for a priest on a given date
+   * Query all availability exceptions (full-day leaves, partial blackouts) for a priest
    */
-  async getAvailableSlots(_priestId: string, _date?: string): Promise<any[]> {
-    // TODO: [Teammate - Priest] Query priest_slots where priestId = id, status = 'AVAILABLE', and slotDate = date
+  async getPriestExceptions(
+    _priestId: string,
+    _query?: { startDate?: string; endDate?: string; date?: string }
+  ): Promise<any[]> {
+    // TODO: [Teammate - Priest] Query priest_availability_exceptions table by priestId and date filters
     return [];
   }
 
   /**
-   * Create a new date-based availability slot for bookings
+   * Create a new availability exception (Mark Full Day Off or Block Specific Hours)
    */
-  async createPriestSlot(priestId: string, data: CreatePriestSlotInput): Promise<any> {
-    const priest = await this.getPriestById(priestId);
-    if (!priest) return null;
-
-    const [slot] = await db
-      .insert(priestSlots)
-      .values({
-        priestId: priest.id,
-        slotDate: (data.slotDate || data.date)!,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        status: data.isAvailable === false ? 'BOOKED' : 'AVAILABLE',
-      })
-      .returning();
-
-    return slot;
-  }
-
-  /**
-   * Update an existing availability slot timing or status
-   */
-  async updatePriestSlot(
+  async createPriestException(
     _priestId: string,
-    _slotId: string,
-    _data: Partial<CreatePriestSlotInput>
+    _data: CreatePriestAvailabilityExceptionInput
   ): Promise<any> {
-    // TODO: [Teammate - Priest] Update availability slot in priest_slots table
+    // TODO: [Teammate - Priest] Insert record into priest_availability_exceptions table
     return null;
   }
 
   /**
-   * Delete an availability slot
+   * Update an existing availability exception
    */
-  async deletePriestSlot(_priestId: string, _slotId: string): Promise<void> {
-    // TODO: [Teammate - Priest] Delete availability slot from priest_slots table
+  async updatePriestException(
+    _priestId: string,
+    _exceptionId: string,
+    _data: UpdatePriestAvailabilityExceptionInput
+  ): Promise<any> {
+    // TODO: [Teammate - Priest] Update record in priest_availability_exceptions table by exceptionId
+    return null;
+  }
+
+  /**
+   * Delete an availability exception (Cancel Leave or Remove Blackout)
+   */
+  async deletePriestException(_priestId: string, _exceptionId: string): Promise<void> {
+    // TODO: [Teammate - Priest] Delete record from priest_availability_exceptions table by exceptionId
+  }
+
+  /**
+   * Retrieve default working hours window for a priest
+   */
+  async getWorkingHours(priestId: string): Promise<any> {
+    const [profile] = await db
+      .select({
+        defaultStartTime: priestProfiles.defaultStartTime,
+        defaultEndTime: priestProfiles.defaultEndTime,
+      })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    return {
+      defaultStartTime: profile?.defaultStartTime || '07:00',
+      defaultEndTime: profile?.defaultEndTime || '21:00',
+    };
+  }
+
+  /**
+   * Update default working hours window for a priest
+   */
+  async updateWorkingHours(
+    _priestId: string,
+    _data: PriestWorkingHoursInput
+  ): Promise<any> {
+    // TODO: [Teammate - Priest] Update defaultStartTime and defaultEndTime in priest_profiles
+    return null;
   }
 }
 

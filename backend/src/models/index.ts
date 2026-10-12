@@ -1,6 +1,10 @@
 import { relations } from 'drizzle-orm';
 import { users } from './user.model.js';
-import { priestProfiles, priestServices, priestSlots } from './priest.model.js';
+import {
+  priestProfiles,
+  priestServices,
+  priestAvailabilityExceptions,
+} from './priest.model.js';
 import { addresses } from './address.model.js';
 import { pujaCatalog } from './catalog.model.js';
 import { bookings } from './booking.model.js';
@@ -23,7 +27,7 @@ export const priestProfilesRelations = relations(priestProfiles, ({ one, many })
     references: [users.id],
   }),
   services: many(priestServices),
-  slots: many(priestSlots),
+  availabilityExceptions: many(priestAvailabilityExceptions),
   bookings: many(bookings),
 }));
 
@@ -38,12 +42,16 @@ export const priestServicesRelations = relations(priestServices, ({ one }) => ({
   }),
 }));
 
-export const priestSlotsRelations = relations(priestSlots, ({ one }) => ({
-  priestProfile: one(priestProfiles, {
-    fields: [priestSlots.priestId],
-    references: [priestProfiles.id],
-  }),
-}));
+
+export const priestAvailabilityExceptionsRelations = relations(
+  priestAvailabilityExceptions,
+  ({ one }) => ({
+    priestProfile: one(priestProfiles, {
+      fields: [priestAvailabilityExceptions.priestId],
+      references: [priestProfiles.id],
+    }),
+  })
+);
 
 export const addressesRelations = relations(addresses, ({ one, many }) => ({
   user: one(users, {
@@ -69,10 +77,6 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
   priestService: one(priestServices, {
     fields: [bookings.priestServiceId],
     references: [priestServices.id],
-  }),
-  slot: one(priestSlots, {
-    fields: [bookings.slotId],
-    references: [priestSlots.id],
   }),
   catalog: one(pujaCatalog, {
     fields: [bookings.pujaCatalogId],

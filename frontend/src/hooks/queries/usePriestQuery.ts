@@ -9,7 +9,6 @@ export const priestKeys = {
   detail: (id: string) => [...priestKeys.all, 'detail', id] as const,
   myProfile: () => [...priestKeys.all, 'my-profile'] as const,
   services: (priestId?: string) => [...priestKeys.all, 'services', priestId] as const,
-  slots: (priestId?: string, date?: string) => [...priestKeys.all, 'slots', priestId, date] as const,
 };
 
 export function usePriests(params?: PriestFilterParams) {
@@ -41,34 +40,7 @@ export function usePriestServices(priestId?: string) {
   });
 }
 
-export function usePriestSlots(priestId?: string, date?: string) {
-  return useQuery({
-    queryKey: priestKeys.slots(priestId, date),
-    queryFn: () => priestApi.getPriestSlots(priestId, date),
-  });
-}
 
-export function useCreateSlotMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ priestId, data }: { priestId?: string; data: { slotDate?: string; date?: string; startTime: string; endTime: string } }) =>
-      priestApi.createAvailabilitySlot(priestId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: priestKeys.all });
-    },
-  });
-}
-
-export function useDeleteSlotMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ slotId, priestId }: { slotId: string; priestId?: string }) =>
-      priestApi.deleteAvailabilitySlot(slotId, priestId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: priestKeys.all });
-    },
-  });
-}
 
 export function useUpdatePriestProfileMutation() {
   const queryClient = useQueryClient();
