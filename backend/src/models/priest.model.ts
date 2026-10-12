@@ -24,8 +24,8 @@ export const priestProfiles = pgTable('priest_profiles', {
   profileImageUrl: text('profile_image_url').default('').notNull(),
   rating: numeric('rating', { precision: 3, scale: 2 }).default('0.00').notNull(),
   reviewCount: integer('review_count').default(0).notNull(),
-  defaultStartTime: time('default_start_time'),
-  defaultEndTime: time('default_end_time'),
+  defaultStartTime: time('defaultStartTime'),
+  defaultEndTime: time('defaultEndTime'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

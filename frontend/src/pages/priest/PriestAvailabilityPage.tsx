@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PriestBookingDetailsDialog } from '@/components/priest/PriestBookingDetailsDialog';
 import { BlockTimeModal } from '@/components/priest/BlockTimeModal';
+import { EditWorkingHoursModal } from '@/components/priest/EditWorkingHoursModal';
 import {
   getPriestExceptions,
   savePriestException,
   deletePriestException,
   formatTimeAmPm,
+  timeToMinutes,
   PriestException,
 } from '@/lib/availabilityUtils';
 import { formatFullDate } from '@/lib/utils';
@@ -47,21 +49,33 @@ export const PriestAvailabilityPage: React.FC = () => {
   // Data State
   const [exceptions, setExceptions] = useState<PriestException[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [workingHours, setWorkingHours] = useState<{ defaultStartTime: string; defaultEndTime: string }>({
+    defaultStartTime: '07:00',
+    defaultEndTime: '18:00',
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals State
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [isEditHoursModalOpen, setIsEditHoursModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
-  // Load bookings and client-side exceptions
+  // Load bookings, working hours and client-side exceptions
   const loadScheduleData = async () => {
     try {
       setIsLoading(true);
-      const [bookingData] = await Promise.all([
+      const [bookingData, whData] = await Promise.all([
         bookingApi.getPriestBookings(priestId),
+        priestApi.getWorkingHours(priestId),
       ]);
       setBookings(bookingData || []);
+      if (whData?.defaultStartTime && whData?.defaultEndTime) {
+        setWorkingHours({
+          defaultStartTime: whData.defaultStartTime,
+          defaultEndTime: whData.defaultEndTime,
+        });
+      }
 
       // Load persistent exceptions
       const storedExceptions = getPriestExceptions(priestId);
@@ -76,6 +90,38 @@ export const PriestAvailabilityPage: React.FC = () => {
   useEffect(() => {
     loadScheduleData();
   }, [priestId]);
+
+  // Format concise hours for display (e.g. 7 AM or 7:30 AM)
+  const formatDisplayHour = (timeStr: string) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return minutes > 0
+      ? `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`
+      : `${displayHours} ${period}`;
+  };
+
+  const startMinutes = timeToMinutes(workingHours.defaultStartTime);
+  const endMinutes = timeToMinutes(workingHours.defaultEndTime);
+  const durationHours = Math.max(0, Math.round((endMinutes - startMinutes) / 60));
+  const workingHoursDisplay = `${formatDisplayHour(workingHours.defaultStartTime)} – ${formatDisplayHour(workingHours.defaultEndTime)}`;
+
+  // Save updated standard working hours
+  const handleSaveWorkingHours = async (startTime: string, endTime: string) => {
+    const res = await priestApi.updateWorkingHours(priestId, {
+      defaultStartTime: startTime,
+      defaultEndTime: endTime,
+    });
+    if (res && res.success === false) {
+      throw new Error(res.message || 'Failed to update working hours.');
+    }
+    setWorkingHours({
+      defaultStartTime: startTime,
+      defaultEndTime: endTime,
+    });
+    toast.success(`Standard working hours updated to ${formatDisplayHour(startTime)} – ${formatDisplayHour(endTime)}.`);
+  };
 
   // Calendar Month Computation
   const viewDate = new Date();
@@ -103,7 +149,7 @@ export const PriestAvailabilityPage: React.FC = () => {
     if (existingLeave) {
       deletePriestException(priestId, existingLeave.id);
       setExceptions((prev) => prev.filter((e) => e.id !== existingLeave.id));
-      toast.success(`Leave removed for ${formatFullDate(selectedDate)}. You are now available 7 AM – 9 PM.`);
+      toast.success(`Leave removed for ${formatFullDate(selectedDate)}. You are now available ${workingHoursDisplay}.`);
     } else {
       const newLeave: PriestException = {
         id: `leave-${Date.now()}`,
@@ -186,12 +232,22 @@ export const PriestAvailabilityPage: React.FC = () => {
             <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
               Default Working Hours
             </span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsEditHoursModalOpen(true)}
+                className="text-[10px] text-amber-800 hover:text-amber-950 font-bold bg-amber-50 hover:bg-amber-100 border border-amber-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                title="Configure daily standard hours"
+              >
+                Edit Hours
+              </button>
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            </div>
           </div>
           <div className="text-2xl font-extrabold font-serif text-emerald-700 mt-2">
-            7 AM – 9 PM
+            {workingHoursDisplay}
           </div>
-          <span className="text-[11px] text-stone-500 block mt-1">Automatic 14-hr daily window</span>
+          <span className="text-[11px] text-stone-500 block mt-1">Automatic {durationHours}-hr daily window</span>
         </div>
 
         <div className="flex-1 min-w-50 p-5 rounded-lg border-2 border-amber-300 border-t-4 border-t-red-600 bg-white shadow-xs">
@@ -350,7 +406,7 @@ export const PriestAvailabilityPage: React.FC = () => {
                         <>
                           <div className="text-[10px] font-medium text-emerald-700 flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                            <span className="truncate">7 AM - 9 PM</span>
+                            <span className="truncate">{workingHoursDisplay}</span>
                           </div>
 
                           {partialCount > 0 && (
@@ -378,7 +434,7 @@ export const PriestAvailabilityPage: React.FC = () => {
             <span className="font-bold text-stone-800">Legend:</span>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span>Available (7 AM - 9 PM)</span>
+              <span>Available ({workingHoursDisplay})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
@@ -470,15 +526,26 @@ export const PriestAvailabilityPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-2.5">
-                {/* Default 7 AM to 9 PM working window */}
+                {/* Default Working Window */}
                 <div className="p-3 bg-emerald-50/70 border border-emerald-300 rounded-lg text-xs flex items-center justify-between">
                   <div>
                     <span className="font-bold text-emerald-950 block">Standard Hours</span>
-                    <span className="text-[11px] text-emerald-700">07:00 AM – 09:00 PM (14 hrs)</span>
+                    <span className="text-[11px] text-emerald-700">
+                      {formatTimeAmPm(workingHours.defaultStartTime)} – {formatTimeAmPm(workingHours.defaultEndTime)} ({durationHours} hrs)
+                    </span>
                   </div>
-                  <Badge variant="outline" className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    Active
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditHoursModalOpen(true)}
+                      className="text-[10px] text-emerald-800 hover:underline font-semibold cursor-pointer"
+                    >
+                      Change
+                    </button>
+                    <Badge variant="outline" className="bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      Active
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Partial Blackouts List */}
@@ -545,6 +612,15 @@ export const PriestAvailabilityPage: React.FC = () => {
         onClose={() => setIsBlockModalOpen(false)}
         selectedDate={selectedDate}
         onSave={handleSaveBlackout}
+      />
+
+      {/* Edit Default Working Hours Modal */}
+      <EditWorkingHoursModal
+        isOpen={isEditHoursModalOpen}
+        onClose={() => setIsEditHoursModalOpen(false)}
+        initialStartTime={workingHours.defaultStartTime}
+        initialEndTime={workingHours.defaultEndTime}
+        onSave={handleSaveWorkingHours}
       />
 
       {/* Booking Details Modal */}
