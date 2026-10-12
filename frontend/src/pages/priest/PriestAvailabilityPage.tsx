@@ -8,9 +8,6 @@ import { PriestBookingDetailsDialog } from '@/components/priest/PriestBookingDet
 import { BlockTimeModal } from '@/components/priest/BlockTimeModal';
 import { EditWorkingHoursModal } from '@/components/priest/EditWorkingHoursModal';
 import {
-  getPriestExceptions,
-  savePriestException,
-  deletePriestException,
   formatTimeAmPm,
   timeToMinutes,
   PriestException,
@@ -77,9 +74,9 @@ export const PriestAvailabilityPage: React.FC = () => {
         });
       }
 
-      // Load persistent exceptions
-      const storedExceptions = getPriestExceptions(priestId);
-      setExceptions(storedExceptions);
+      // Load persistent exceptions from database
+      const storedExceptions = await priestApi.getPriestExceptions(priestId);
+      setExceptions(Array.isArray(storedExceptions) ? storedExceptions : []);
     } catch {
       toast.error('Failed to load schedule and bookings.');
     } finally {
@@ -141,52 +138,84 @@ export const PriestAvailabilityPage: React.FC = () => {
   const maxDateStr = maxDate.toISOString().split('T')[0];
 
   // Toggle Full Day Leave
-  const handleToggleFullDayLeave = () => {
+  const handleToggleFullDayLeave = async () => {
     const existingLeave = exceptions.find(
       (e) => e.date === selectedDate && e.type === 'FULL_DAY_LEAVE'
     );
 
     if (existingLeave) {
-      deletePriestException(priestId, existingLeave.id);
-      setExceptions((prev) => prev.filter((e) => e.id !== existingLeave.id));
-      toast.success(`Leave removed for ${formatFullDate(selectedDate)}. You are now available ${workingHoursDisplay}.`);
+      try {
+        await priestApi.deletePriestException(existingLeave.id, priestId);
+        setExceptions((prev) => prev.filter((e) => e.id !== existingLeave.id));
+        toast.success(`Leave removed for ${formatFullDate(selectedDate)}. You are now available ${workingHoursDisplay}.`);
+      } catch {
+        toast.error('Failed to remove leave.');
+      }
     } else {
-      const newLeave: PriestException = {
-        id: `leave-${Date.now()}`,
-        priestId,
-        date: selectedDate,
-        type: 'FULL_DAY_LEAVE',
-        reason: 'Full Day Off / Leave',
-        createdAt: new Date().toISOString(),
-      };
-      savePriestException(newLeave);
-      setExceptions((prev) => [...prev, newLeave]);
-      toast.success(`Marked ${formatFullDate(selectedDate)} as Day Off.`);
+      try {
+        const res = await priestApi.createPriestException(priestId, {
+          date: selectedDate,
+          startTime: '07:00',
+          endTime: '21:00',
+          reason: 'Full Day Off / Leave',
+          exceptionType: 'BLOCK',
+        });
+        const saved = (res && res.data) ? res.data : res;
+        const newLeave: PriestException = {
+          id: saved?.id || `leave-${Date.now()}`,
+          priestId,
+          date: selectedDate,
+          type: 'FULL_DAY_LEAVE',
+          startTime: '07:00',
+          endTime: '21:00',
+          reason: 'Full Day Off / Leave',
+          createdAt: saved?.createdAt || new Date().toISOString(),
+        };
+        setExceptions((prev) => [...prev.filter((e) => e.id !== newLeave.id), newLeave]);
+        toast.success(`Marked ${formatFullDate(selectedDate)} as Day Off.`);
+      } catch {
+        toast.error('Failed to mark day off.');
+      }
     }
   };
 
   // Add Partial Hour Blackout
-  const handleSaveBlackout = (startTime: string, endTime: string, reason: string) => {
-    const newBlackout: PriestException = {
-      id: `blackout-${Date.now()}`,
-      priestId,
-      date: selectedDate,
-      type: 'PARTIAL_BLACKOUT',
-      startTime,
-      endTime,
-      reason,
-      createdAt: new Date().toISOString(),
-    };
-    savePriestException(newBlackout);
-    setExceptions((prev) => [...prev, newBlackout]);
-    toast.success(`Blocked ${formatTimeAmPm(startTime)} – ${formatTimeAmPm(endTime)} on ${formatFullDate(selectedDate)}.`);
+  const handleSaveBlackout = async (startTime: string, endTime: string, reason: string) => {
+    try {
+      const res = await priestApi.createPriestException(priestId, {
+        date: selectedDate,
+        startTime,
+        endTime,
+        reason,
+        exceptionType: 'BLOCK',
+      });
+      const saved = (res && res.data) ? res.data : res;
+      const newBlackout: PriestException = {
+        id: saved?.id || `blackout-${Date.now()}`,
+        priestId,
+        date: selectedDate,
+        type: 'PARTIAL_BLACKOUT',
+        startTime,
+        endTime,
+        reason,
+        createdAt: saved?.createdAt || new Date().toISOString(),
+      };
+      setExceptions((prev) => [...prev.filter((e) => e.id !== newBlackout.id), newBlackout]);
+      toast.success(`Blocked ${formatTimeAmPm(startTime)} – ${formatTimeAmPm(endTime)} on ${formatFullDate(selectedDate)}.`);
+    } catch {
+      toast.error('Failed to block hours.');
+    }
   };
 
   // Delete a specific exception
-  const handleDeleteException = (exceptionId: string) => {
-    deletePriestException(priestId, exceptionId);
-    setExceptions((prev) => prev.filter((e) => e.id !== exceptionId));
-    toast.success('Blackout removed. Time window is now available.');
+  const handleDeleteException = async (exceptionId: string) => {
+    try {
+      await priestApi.deletePriestException(exceptionId, priestId);
+      setExceptions((prev) => prev.filter((e) => e.id !== exceptionId));
+      toast.success('Blackout removed. Time window is now available.');
+    } catch {
+      toast.error('Failed to remove blackout.');
+    }
   };
 
   // Selected date status inspection
