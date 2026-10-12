@@ -179,7 +179,14 @@ export const priestApi = {
   ) => {
     try {
       const activeId = priestId || priestApi.resolveCurrentPriestId();
-      const res = await apiClient.post(`/priests/${activeId}/exceptions`, payload);
+      const startAt = payload.startAt || (payload.date ? `${payload.date}T${payload.startTime || '07:00'}:00.000Z` : '');
+      const endAt = payload.endAt || (payload.date ? `${payload.date}T${payload.endTime || '21:00'}:00.000Z` : '');
+      const res = await apiClient.post(`/priests/${activeId}/exceptions`, {
+        exceptionType: payload.exceptionType || 'BLOCK',
+        startAt,
+        endAt,
+        reason: payload.reason || '',
+      });
       return res as any;
     } catch (error) {
       logAppError('priestApi.createPriestException', error, { priestId, payload });

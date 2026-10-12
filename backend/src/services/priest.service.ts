@@ -1,6 +1,6 @@
 import { eq, or } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { users, priestProfiles, priestServices } from '../models/index.js';
+import { users, priestProfiles, priestServices, priestAvailabilityExceptions } from '../models/index.js';
 import {
   UpdatePriestProfileInput,
   CreatePriestServiceInput,
@@ -156,9 +156,32 @@ export class PriestService {
   /**
    * Create a new ritual service offering for a priest
    */
-  async createPriestService(_priestId: string, _data: CreatePriestServiceInput): Promise<any> {
-    // TODO: [Teammate - Priest] Insert new service offering into priest_services table
-    return null;
+  async createPriestService(priestId: string, data: CreatePriestServiceInput): Promise<any> {
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    if (!profile) {
+      throw new Error(`Priest profile not found for ID: ${priestId}`);
+    }
+
+    const [record] = await db
+      .insert(priestServices)
+      .values({
+        priestId: profile.id,
+        serviceName: data.serviceName,
+        pujaCatalogId: data.pujaCatalogId || null,
+        category: data.category || 'General',
+        samagriList: data.samagriList || [],
+        price: data.price,
+        isCustom: data.isCustom ?? false,
+        isActive: data.isActive ?? true,
+      })
+      .returning();
+
+    return record;
   }
 
   /**
@@ -193,22 +216,94 @@ export class PriestService {
    * Query all availability exceptions (full-day leaves, partial blackouts) for a priest
    */
   async getPriestExceptions(
-    _priestId: string,
+    priestId: string,
     _query?: { startDate?: string; endDate?: string; date?: string }
   ): Promise<any[]> {
-    // TODO: [Teammate - Priest] Query priest_availability_exceptions table by priestId and date filters
-    return [];
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    const targetPriestId = profile ? profile.id : priestId;
+
+    const rows = await db
+      .select()
+      .from(priestAvailabilityExceptions)
+      .where(eq(priestAvailabilityExceptions.priestId, targetPriestId));
+
+    return rows.map((r) => {
+      const start = new Date(r.startAt);
+      const end = new Date(r.endAt);
+      const dateStr = start.toISOString().split('T')[0];
+      const startH = String(start.getUTCHours()).padStart(2, '0') + ':' + String(start.getUTCMinutes()).padStart(2, '0');
+      const endH = String(end.getUTCHours()).padStart(2, '0') + ':' + String(end.getUTCMinutes()).padStart(2, '0');
+      const isFullLeave = (startH === '07:00' && endH === '21:00') || (startH === '00:00' && endH === '23:59');
+
+      return {
+        id: r.id,
+        priestId: r.priestId,
+        date: dateStr,
+        type: isFullLeave ? 'FULL_DAY_LEAVE' : 'PARTIAL_BLACKOUT',
+        startTime: startH,
+        endTime: endH,
+        exceptionType: r.exceptionType,
+        startAt: r.startAt ? new Date(r.startAt).toISOString() : '',
+        endAt: r.endAt ? new Date(r.endAt).toISOString() : '',
+        reason: r.reason || '',
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+      };
+    });
   }
 
   /**
    * Create a new availability exception (Mark Full Day Off or Block Specific Hours)
    */
   async createPriestException(
-    _priestId: string,
-    _data: CreatePriestAvailabilityExceptionInput
+    priestId: string,
+    data: CreatePriestAvailabilityExceptionInput
   ): Promise<any> {
-    // TODO: [Teammate - Priest] Insert record into priest_availability_exceptions table
-    return null;
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    if (!profile) {
+      throw new Error(`Priest profile not found for ID: ${priestId}`);
+    }
+
+    const [record] = await db
+      .insert(priestAvailabilityExceptions)
+      .values({
+        priestId: profile.id,
+        exceptionType: data.exceptionType || 'BLOCK',
+        startAt: new Date(data.startAt),
+        endAt: new Date(data.endAt),
+        reason: data.reason || null,
+      })
+      .returning();
+
+    const start = new Date(record.startAt);
+    const end = new Date(record.endAt);
+    const dateStr = start.toISOString().split('T')[0];
+    const startH = String(start.getUTCHours()).padStart(2, '0') + ':' + String(start.getUTCMinutes()).padStart(2, '0');
+    const endH = String(end.getUTCHours()).padStart(2, '0') + ':' + String(end.getUTCMinutes()).padStart(2, '0');
+    const isFullLeave = (startH === '07:00' && endH === '21:00') || (startH === '00:00' && endH === '23:59');
+
+    return {
+      id: record.id,
+      priestId: record.priestId,
+      date: dateStr,
+      type: isFullLeave ? 'FULL_DAY_LEAVE' : 'PARTIAL_BLACKOUT',
+      startTime: startH,
+      endTime: endH,
+      exceptionType: record.exceptionType,
+      startAt: record.startAt ? new Date(record.startAt).toISOString() : '',
+      endAt: record.endAt ? new Date(record.endAt).toISOString() : '',
+      reason: record.reason || '',
+      createdAt: record.createdAt ? new Date(record.createdAt).toISOString() : new Date().toISOString(),
+    };
   }
 
   /**
@@ -216,18 +311,31 @@ export class PriestService {
    */
   async updatePriestException(
     _priestId: string,
-    _exceptionId: string,
-    _data: UpdatePriestAvailabilityExceptionInput
+    exceptionId: string,
+    data: UpdatePriestAvailabilityExceptionInput
   ): Promise<any> {
-    // TODO: [Teammate - Priest] Update record in priest_availability_exceptions table by exceptionId
-    return null;
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (data.startAt) updateData.startAt = new Date(data.startAt);
+    if (data.endAt) updateData.endAt = new Date(data.endAt);
+    if (data.exceptionType) updateData.exceptionType = data.exceptionType;
+    if (data.reason !== undefined) updateData.reason = data.reason;
+
+    const [updated] = await db
+      .update(priestAvailabilityExceptions)
+      .set(updateData)
+      .where(eq(priestAvailabilityExceptions.id, exceptionId))
+      .returning();
+
+    return updated;
   }
 
   /**
    * Delete an availability exception (Cancel Leave or Remove Blackout)
    */
-  async deletePriestException(_priestId: string, _exceptionId: string): Promise<void> {
-    // TODO: [Teammate - Priest] Delete record from priest_availability_exceptions table by exceptionId
+  async deletePriestException(_priestId: string, exceptionId: string): Promise<void> {
+    await db
+      .delete(priestAvailabilityExceptions)
+      .where(eq(priestAvailabilityExceptions.id, exceptionId));
   }
 
   /**
