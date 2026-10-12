@@ -191,67 +191,158 @@ export class PriestController {
     }
   }
 
+
   /**
-   * GET /api/v1/priests/:id/slots
+   * GET /api/v1/priests/me/exceptions
    */
-  async getPriestSlots(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getMyExceptions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
-      const slots = await priestService.getPriestSlots(req.params.id, date);
-      sendSuccess(res, 'Availability slots retrieved.', slots);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const exceptions = await priestService.getPriestExceptions(req.user.id, req.query as any);
+      sendSuccess(res, 'Priest availability exceptions retrieved.', exceptions);
     } catch (error) {
       next(error);
     }
   }
 
   /**
-   * GET /api/v1/priests/:id/slots/available
+   * POST /api/v1/priests/me/exceptions
    */
-  async getAvailableSlots(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createMyException(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
-      const slots = await priestService.getAvailableSlots(req.params.id, date);
-      sendSuccess(res, 'Available slots retrieved.', slots);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const exception = await priestService.createPriestException(req.user.id, req.body);
+      sendSuccess(res, 'Availability exception created successfully.', exception, 201);
     } catch (error) {
       next(error);
     }
   }
 
   /**
-   * POST /api/v1/priests/:id/slots
+   * DELETE /api/v1/priests/me/exceptions/:exceptionId
    */
-  async createPriestSlot(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deleteMyException(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const slot = await priestService.createPriestSlot(req.params.id, req.body);
-      sendSuccess(res, 'Slot created successfully.', slot, 201);
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      await priestService.deletePriestException(req.user.id, req.params.exceptionId);
+      sendSuccess(res, 'Availability exception deleted successfully.');
     } catch (error) {
       next(error);
     }
   }
 
   /**
-   * PUT /api/v1/priests/:id/slots/:slotId
+   * GET /api/v1/priests/:id/exceptions
    */
-  async updatePriestSlot(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPriestExceptions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const updated = await priestService.updatePriestSlot(
+      const exceptions = await priestService.getPriestExceptions(req.params.id, req.query as any);
+      sendSuccess(res, 'Priest availability exceptions retrieved.', exceptions);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/priests/:id/exceptions
+   */
+  async createPriestException(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const exception = await priestService.createPriestException(req.params.id, req.body);
+      sendSuccess(res, 'Availability exception created successfully.', exception, 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/v1/priests/:id/exceptions/:exceptionId
+   */
+  async updatePriestException(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const updated = await priestService.updatePriestException(
         req.params.id,
-        req.params.slotId,
+        req.params.exceptionId,
         req.body
       );
-      sendSuccess(res, 'Slot updated successfully.', updated);
+      sendSuccess(res, 'Availability exception updated successfully.', updated);
     } catch (error) {
       next(error);
     }
   }
 
   /**
-   * DELETE /api/v1/priests/:id/slots/:slotId
+   * DELETE /api/v1/priests/:id/exceptions/:exceptionId
    */
-  async deletePriestSlot(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deletePriestException(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      await priestService.deletePriestSlot(req.params.id, req.params.slotId);
-      sendSuccess(res, 'Slot deleted successfully.');
+      await priestService.deletePriestException(req.params.id, req.params.exceptionId);
+      sendSuccess(res, 'Availability exception deleted successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/priests/me/working-hours
+   */
+  async getMyWorkingHours(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const workingHours = await priestService.getWorkingHours(req.user.id);
+      sendSuccess(res, 'Priest default working hours retrieved.', workingHours);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/v1/priests/me/working-hours
+   */
+  async updateMyWorkingHours(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        sendError(res, 'Unauthorized session', 401);
+        return;
+      }
+      const updated = await priestService.updateWorkingHours(req.user.id, req.body);
+      sendSuccess(res, 'Priest default working hours updated successfully.', updated);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/priests/:id/working-hours
+   */
+  async getPriestWorkingHours(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const workingHours = await priestService.getWorkingHours(req.params.id);
+      sendSuccess(res, 'Priest working hours retrieved.', workingHours);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/v1/priests/:id/working-hours
+   */
+  async updatePriestWorkingHours(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const updated = await priestService.updateWorkingHours(req.params.id, req.body);
+      sendSuccess(res, 'Priest working hours updated successfully.', updated);
     } catch (error) {
       next(error);
     }

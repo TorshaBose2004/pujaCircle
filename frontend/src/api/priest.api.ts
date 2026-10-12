@@ -1,7 +1,6 @@
 import {
   Priest,
   PriestFilterParams,
-  PriestSlot,
   Ritual,
   PriestService,
 } from '@/types/priest.types';
@@ -9,6 +8,7 @@ import { PincodeLookupResponse } from '@/types/address.types';
 import { apiClient } from './client';
 import { useAuthStore } from '@/store/auth.store';
 import { logAppError, getUserFriendlyErrorMessage } from '@/lib/errorHandler';
+import { getPriestExceptions, calculateDayMuhuratSlots, CalculatedSlot } from '@/lib/availabilityUtils';
 
 export const priestApi = {
   // Helper to resolve current authenticated priest ID
@@ -134,84 +134,93 @@ export const priestApi = {
     }
   },
 
-  // Direct Date-Based Availability Slots
-  getPriestSlots: async (priestId?: string, date?: string): Promise<PriestSlot[]> => {
+  // Date-Based Muhurat Availability Computations
+  getAvailableSlotsForDate: async (priestId: string, date: string): Promise<CalculatedSlot[]> => {
     try {
-      const activeId = priestId || priestApi.resolveCurrentPriestId();
-      if (!activeId) return [];
-      const res = await apiClient.get(`/priests/${activeId}/slots`, { params: { date } });
-      return (res as any).data || res;
-    } catch (error) {
-      logAppError('priestApi.getPriestSlots', error, { priestId, date });
-      return [];
-    }
-  },
-
-  getMySlots: async (date?: string): Promise<PriestSlot[]> => {
-    return priestApi.getPriestSlots(undefined, date);
-  },
-
-  getAvailableSlotsForDate: async (priestId: string, date: string): Promise<PriestSlot[]> => {
-    try {
-      const res = await apiClient.get(`/priests/${priestId}/slots/available`, { params: { date } });
-      return (res as any).data || res;
+      const exceptions = getPriestExceptions(priestId);
+      return calculateDayMuhuratSlots(priestId, date, exceptions);
     } catch (error) {
       logAppError('priestApi.getAvailableSlotsForDate', error, { priestId, date });
       return [];
     }
   },
 
-  createAvailabilitySlot: async (
+  // Availability Exceptions (Full-Day Leaves & Partial Blackouts)
+  getPriestExceptions: async (priestId?: string, query?: { date?: string; startDate?: string; endDate?: string }): Promise<any[]> => {
+    try {
+      const activeId = priestId || priestApi.resolveCurrentPriestId();
+      if (!activeId) return [];
+      const res = await apiClient.get(`/priests/${activeId}/exceptions`, { params: query });
+      return (res as any).data || res || [];
+    } catch (error) {
+      logAppError('priestApi.getPriestExceptions', error, { priestId, query });
+      return [];
+    }
+  },
+
+  getMyExceptions: async (query?: { date?: string; startDate?: string; endDate?: string }): Promise<any[]> => {
+    return priestApi.getPriestExceptions(undefined, query);
+  },
+
+  createPriestException: async (
     priestId: string | undefined,
-    payload: { slotDate?: string; date?: string; startTime: string; endTime: string }
+    payload: { exceptionType?: string; startAt?: string; endAt?: string; date?: string; startTime?: string; endTime?: string; reason?: string }
   ) => {
     try {
       const activeId = priestId || priestApi.resolveCurrentPriestId();
-      const res = await apiClient.post(`/priests/${activeId}/slots`, payload);
+      const res = await apiClient.post(`/priests/${activeId}/exceptions`, payload);
       return res as any;
     } catch (error) {
-      logAppError('priestApi.createAvailabilitySlot', error, { priestId, payload });
+      logAppError('priestApi.createPriestException', error, { priestId, payload });
       return {
         success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to create availability slot.'),
+        message: getUserFriendlyErrorMessage(error, 'Failed to save availability exception.'),
       };
     }
   },
 
-  updateAvailabilitySlot: async (
-    slotId: string,
+  deletePriestException: async (exceptionId: string, priestId?: string) => {
+    try {
+      const activeId = priestId || priestApi.resolveCurrentPriestId();
+      const res = await apiClient.delete(`/priests/${activeId}/exceptions/${exceptionId}`);
+      return res as any;
+    } catch (error) {
+      logAppError('priestApi.deletePriestException', error, { exceptionId, priestId });
+      return {
+        success: false,
+        message: getUserFriendlyErrorMessage(error, 'Failed to delete availability exception.'),
+      };
+    }
+  },
+
+  // Default Working Hours
+  getWorkingHours: async (priestId?: string) => {
+    try {
+      const activeId = priestId || priestApi.resolveCurrentPriestId();
+      if (!activeId) return null;
+      const res = await apiClient.get(`/priests/${activeId}/working-hours`);
+      return (res as any).data || res;
+    } catch (error) {
+      logAppError('priestApi.getWorkingHours', error, { priestId });
+      return null;
+    }
+  },
+
+  updateWorkingHours: async (
     priestId: string | undefined,
-    payload: { slotDate?: string; date?: string; startTime?: string; endTime?: string }
+    data: { defaultStartTime?: string; defaultEndTime?: string }
   ) => {
     try {
       const activeId = priestId || priestApi.resolveCurrentPriestId();
-      const res = await apiClient.put(`/priests/${activeId}/slots/${slotId}`, payload);
+      const res = await apiClient.put(`/priests/${activeId}/working-hours`, data);
       return res as any;
     } catch (error) {
-      logAppError('priestApi.updateAvailabilitySlot', error, { slotId, priestId, payload });
+      logAppError('priestApi.updateWorkingHours', error, { priestId, data });
       return {
         success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to update availability slot.'),
+        message: getUserFriendlyErrorMessage(error, 'Failed to update working hours.'),
       };
     }
-  },
-
-  deleteAvailabilitySlot: async (slotId: string, priestId?: string) => {
-    try {
-      const activeId = priestId || priestApi.resolveCurrentPriestId();
-      const res = await apiClient.delete(`/priests/${activeId}/slots/${slotId}`);
-      return res as any;
-    } catch (error) {
-      logAppError('priestApi.deleteAvailabilitySlot', error, { slotId, priestId });
-      return {
-        success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to remove availability slot.'),
-      };
-    }
-  },
-
-  createPriestSlot: async (priestId: string, data: { date: string; startTime: string; endTime: string }) => {
-    return priestApi.createAvailabilitySlot(priestId, { slotDate: data.date, ...data });
   },
 
   getRituals: async (): Promise<Ritual[]> => {

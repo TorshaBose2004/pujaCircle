@@ -4,7 +4,8 @@ import { useAuthStore } from "@/store/auth.store";
 import { priestApi } from "@/api/priest.api";
 import { addressApi } from "@/api/address.api";
 import { bookingApi } from "@/api/booking.api";
-import { Priest, PriestSlot, PriestService } from "@/types/priest.types";
+import { Priest, PriestService } from "@/types/priest.types";
+import { CalculatedSlot } from "@/lib/availabilityUtils";
 import { Address } from "@/types/address.types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -45,7 +46,7 @@ export const PriestDetailsPage: React.FC = () => {
   // Date & Dynamic Slot Picker
   const todayStr = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [availableSlots, setAvailableSlots] = useState<PriestSlot[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<CalculatedSlot[]>([]);
   const [isSlotsLoading, setIsSlotsLoading] = useState(false);
 
   // Booking Flow State
@@ -53,7 +54,7 @@ export const PriestDetailsPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<PriestService | null>(
     null,
   );
-  const [selectedSlot, setSelectedSlot] = useState<PriestSlot | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<CalculatedSlot | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [userNotes, setUserNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,7 +112,7 @@ export const PriestDetailsPage: React.FC = () => {
     loadSlots();
   }, [id, selectedDate]);
 
-  const handleStartBooking = (service?: PriestService, slot?: PriestSlot) => {
+  const handleStartBooking = (service?: PriestService, slot?: CalculatedSlot) => {
     if (!isAuthenticated) {
       toast.info("Please sign in to schedule an appointment with this Priest.");
       navigate("/user/login");
@@ -454,9 +455,7 @@ export const PriestDetailsPage: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-stone-500">
-                        {slot.ruleId
-                          ? "Standard Shubh Muhurat"
-                          : "Special Auspicious Muhurat"}
+                        Standard Shubh Muhurat
                       </p>
                     </div>
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * [SCHEMA] Priest Validation Schemas
- * Strict validation bounds for priest profiles, services, and slots.
+ * Strict validation bounds for priest profiles, services, and availability exceptions.
  */
 export const updatePriestProfileSchema = z.object({
   experienceYears: z.coerce.number().int().min(0).max(80).optional(),
@@ -14,6 +14,8 @@ export const updatePriestProfileSchema = z.object({
   state: z.string().trim().max(100).optional(),
   pincode: z.string().trim().regex(/^\d{6}$/, 'PIN code must be a 6-digit number').optional(),
   profileImageUrl: z.string().url('Invalid image URL format').optional().or(z.literal('')),
+  defaultStartTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Time must be in HH:mm 24hr format').optional(),
+  defaultEndTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Time must be in HH:mm 24hr format').optional(),
 });
 
 export const createPriestServiceSchema = z.object({
@@ -28,23 +30,6 @@ export const createPriestServiceSchema = z.object({
 
 export const updatePriestServiceSchema = createPriestServiceSchema.partial();
 
-const basePriestSlotSchema = z.object({
-  slotDate: z.string().optional(),
-  date: z.string().optional(),
-  startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Time must be in HH:mm 24hr format'),
-  endTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Time must be in HH:mm 24hr format'),
-  isAvailable: z.boolean().default(true),
-});
-
-export const createPriestSlotSchema = basePriestSlotSchema.refine(
-  (data) => Boolean(data.slotDate || data.date),
-  {
-    message: 'Slot date is required',
-    path: ['slotDate'],
-  }
-);
-
-export const updatePriestSlotSchema = basePriestSlotSchema.partial();
 
 export const priestFilterParamsSchema = z.object({
   city: z.string().optional(),
@@ -63,9 +48,24 @@ export const priestFilterParamsSchema = z.object({
   minRating: z.coerce.number().optional(),
 });
 
+export const createPriestAvailabilityExceptionSchema = z.object({
+  exceptionType: z.enum(['BLOCK', 'CUSTOM_HOURS']).default('BLOCK'),
+  startAt: z.string().min(1, 'startAt is required'),
+  endAt: z.string().min(1, 'endAt is required'),
+  reason: z.string().trim().max(255).optional(),
+});
+
+export const updatePriestAvailabilityExceptionSchema = createPriestAvailabilityExceptionSchema.partial();
+
+export const priestWorkingHoursSchema = z.object({
+  defaultStartTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Time must be in HH:mm 24hr format').optional(),
+  defaultEndTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Time must be in HH:mm 24hr format').optional(),
+});
+
 export type UpdatePriestProfileInput = z.infer<typeof updatePriestProfileSchema>;
 export type CreatePriestServiceInput = z.infer<typeof createPriestServiceSchema>;
 export type UpdatePriestServiceInput = z.infer<typeof updatePriestServiceSchema>;
-export type CreatePriestSlotInput = z.infer<typeof createPriestSlotSchema>;
-export type UpdatePriestSlotInput = z.infer<typeof updatePriestSlotSchema>;
 export type PriestFilterParams = z.infer<typeof priestFilterParamsSchema>;
+export type CreatePriestAvailabilityExceptionInput = z.infer<typeof createPriestAvailabilityExceptionSchema>;
+export type UpdatePriestAvailabilityExceptionInput = z.infer<typeof updatePriestAvailabilityExceptionSchema>;
+export type PriestWorkingHoursInput = z.infer<typeof priestWorkingHoursSchema>;

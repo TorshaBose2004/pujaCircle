@@ -1,8 +1,8 @@
-import { pgTable, uuid, varchar, text, integer, numeric, timestamp, pgEnum, jsonb, boolean, date, time } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, integer, numeric, timestamp, pgEnum, jsonb, boolean, time } from 'drizzle-orm/pg-core';
 import { users } from './user.model.js';
 
 export const approvalStatusEnum = pgEnum('priest_approval_status', ['PENDING', 'APPROVED', 'REJECTED']);
-export const slotStatusEnum = pgEnum('slot_status', ['AVAILABLE', 'BOOKED']);
+export const exceptionTypeEnum = pgEnum('exception_type', ['BLOCK', 'CUSTOM_HOURS']);
 
 /**
  * [MODEL] Priest Profiles Table
@@ -24,6 +24,8 @@ export const priestProfiles = pgTable('priest_profiles', {
   profileImageUrl: text('profile_image_url').default('').notNull(),
   rating: numeric('rating', { precision: 3, scale: 2 }).default('0.00').notNull(),
   reviewCount: integer('review_count').default(0).notNull(),
+  defaultStartTime: time('default_start_time'),
+  defaultEndTime: time('default_end_time'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -47,22 +49,23 @@ export const priestServices = pgTable('priest_services', {
 });
 
 /**
- * [MODEL] Priest Slots Table
- * Date-based availability slots configured by priests for ceremony bookings.
+ * [MODEL] Priest Availability Exceptions Table
+ * Blocked intervals and custom hours overrides for priests.
  */
-export const priestSlots = pgTable('priest_slots', {
+export const priestAvailabilityExceptions = pgTable('priest_availability_exceptions', {
   id: uuid('id').defaultRandom().primaryKey(),
   priestId: uuid('priest_id').notNull().references(() => priestProfiles.id, { onDelete: 'cascade' }),
-  slotDate: date('slot_date').notNull(), // Date of ceremony (YYYY-MM-DD)
-  startTime: time('start_time').notNull(), // Start time (HH:MM)
-  endTime: time('end_time').notNull(), // End time (HH:MM)
-  status: varchar('status', { length: 20 }).$type<'AVAILABLE' | 'BOOKED'>().default('AVAILABLE').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  exceptionType: exceptionTypeEnum('exception_type').default('BLOCK').notNull(),
+  startAt: timestamp('start_at', { withTimezone: true }).notNull(),
+  endAt: timestamp('end_at', { withTimezone: true }).notNull(),
+  reason: varchar('reason', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type PriestProfile = typeof priestProfiles.$inferSelect;
 export type NewPriestProfile = typeof priestProfiles.$inferInsert;
 export type PriestService = typeof priestServices.$inferSelect;
 export type NewPriestService = typeof priestServices.$inferInsert;
-export type PriestSlot = typeof priestSlots.$inferSelect;
-export type NewPriestSlot = typeof priestSlots.$inferInsert;
+export type PriestAvailabilityException = typeof priestAvailabilityExceptions.$inferSelect;
+export type NewPriestAvailabilityException = typeof priestAvailabilityExceptions.$inferInsert;

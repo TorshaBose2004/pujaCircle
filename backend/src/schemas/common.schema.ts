@@ -17,7 +17,12 @@ export const priestServiceParamSchema = z.object({
   serviceId: z.string().uuid('Invalid Service ID format'),
 });
 
-export const priestSlotParamSchema = z.object({
+
+export const priestExceptionParamSchema = z.object({
   id: z.string().uuid('Invalid Priest ID format'),
-  slotId: z.string().uuid('Invalid Slot ID format'),
+  exceptionId: z.string().uuid('Invalid Exception ID format'),
+});
+
+export const exceptionIdParamSchema = z.object({
+  exceptionId: z.string().uuid('Invalid Exception ID format'),
 });

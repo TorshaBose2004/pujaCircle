@@ -1,5 +1,5 @@
 import { Address } from './address.types';
-import { Priest, Ritual, PriestSlot, PriestService } from './priest.types';
+import { Priest, Ritual, PriestService } from './priest.types';
 
 export type BookingStatus =
   | 'PENDING'
@@ -52,7 +52,7 @@ export interface Booking {
   ritual?: Ritual;
   priestService?: PriestService;
   address?: Address;
-  slot?: PriestSlot;
+  slot?: { id?: string; startTime: string; endTime: string };
   user?: { id: string; name: string; phoneNumber: string; email?: string };
   userName?: string;
   userPhone?: string;

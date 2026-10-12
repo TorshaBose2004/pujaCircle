@@ -85,48 +85,7 @@ export const availabilityExceptionSchema = z
   })
   .strict();
 
-export const createAvailabilitySlotSchema = z
-  .object({
-    slotDate: z
-      .string()
-      .trim()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid date required (YYYY-MM-DD)'),
-    date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    startTime: z
-      .string()
-      .trim()
-      .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Valid start time required (HH:MM format, 00:00 to 23:59)'),
-    endTime: z
-      .string()
-      .trim()
-      .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Valid end time required (HH:MM format, 00:00 to 23:59)'),
-  })
-  .strict()
-  .refine(
-    (data) => {
-      const [startHour, startMin] = data.startTime.split(':').map(Number);
-      const [endHour, endMin] = data.endTime.split(':').map(Number);
-      const startTotal = startHour * 60 + startMin;
-      const endTotal = endHour * 60 + endMin;
-      const duration = endTotal - startTotal;
-      return duration >= 30;
-    },
-    {
-      message: 'End time must be at least 30 minutes after start time',
-      path: ['endTime'],
-    }
-  );
 
-export const updateAvailabilitySlotSchema = z
-  .object({
-    slotDate: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
-    endTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
-  })
-  .strict();
-
-export const availabilitySlotSchema = createAvailabilitySlotSchema;
 
 export const updatePriestProfileSchema = z
   .object({
@@ -140,6 +99,17 @@ export const updatePriestProfileSchema = z
     city: z.string().trim().min(2, 'City is required').max(100).optional(),
     state: z.string().trim().min(2, 'State is required').max(100).optional(),
     profileImageUrl: z.string().trim().max(10000000).optional().or(z.literal('')),
+    defaultStartTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Valid time required (HH:MM)').optional(),
+    defaultEndTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Valid time required (HH:MM)').optional(),
+  })
+  .strict();
+
+export const priestAvailabilityExceptionSchema = z
+  .object({
+    exceptionType: z.enum(['BLOCK', 'CUSTOM_HOURS']).default('BLOCK'),
+    startAt: z.string().datetime({ message: 'Valid start date/time ISO string required' }),
+    endAt: z.string().datetime({ message: 'Valid end date/time ISO string required' }),
+    reason: z.string().trim().max(255, 'Reason cannot exceed 255 characters').optional().or(z.literal('')),
   })
   .strict();
 
@@ -147,5 +117,5 @@ export type PriestRegistrationInput = z.infer<typeof priestRegistrationSchema>;
 export type PriestServiceInput = z.infer<typeof priestServiceSchema>;
 export type WeeklyAvailabilityRuleInput = z.infer<typeof weeklyAvailabilityRuleSchema>;
 export type AvailabilityExceptionInput = z.infer<typeof availabilityExceptionSchema>;
-export type AvailabilitySlotInput = z.infer<typeof availabilitySlotSchema>;
+export type PriestAvailabilityExceptionInput = z.infer<typeof priestAvailabilityExceptionSchema>;
 export type UpdatePriestProfileInput = z.infer<typeof updatePriestProfileSchema>;

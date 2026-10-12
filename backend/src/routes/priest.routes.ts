@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { priestController } from '../controllers/priest.controller.js';
+import { availabilityController } from '../controllers/availability.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/role.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
@@ -8,10 +9,16 @@ import {
   updatePriestProfileSchema,
   createPriestServiceSchema,
   updatePriestServiceSchema,
-  createPriestSlotSchema,
-  updatePriestSlotSchema,
+  createPriestAvailabilityExceptionSchema,
+  updatePriestAvailabilityExceptionSchema,
+  priestWorkingHoursSchema,
 } from '../schemas/priest.schema.js';
-import { uuidParamSchema, priestServiceParamSchema, priestSlotParamSchema } from '../schemas/common.schema.js';
+import {
+  uuidParamSchema,
+  priestServiceParamSchema,
+  priestExceptionParamSchema,
+  exceptionIdParamSchema,
+} from '../schemas/common.schema.js';
 
 const router = Router();
 
@@ -31,6 +38,13 @@ router.get('/me/services', requireAuth, requireRole('PRIEST'), priestController.
 router.post('/me/services', requireAuth, requireRole('PRIEST'), validate(createPriestServiceSchema), priestController.addService);
 router.delete('/me/services/:serviceId', requireAuth, requireRole('PRIEST'), validate(z.object({ serviceId: z.string().uuid() }), 'params'), priestController.deleteService);
 
+// Protected priest availability & leaves self-management
+router.get('/me/exceptions', requireAuth, requireRole('PRIEST'), priestController.getMyExceptions);
+router.post('/me/exceptions', requireAuth, requireRole('PRIEST'), validate(createPriestAvailabilityExceptionSchema), priestController.createMyException);
+router.delete('/me/exceptions/:exceptionId', requireAuth, requireRole('PRIEST'), validate(exceptionIdParamSchema, 'params'), priestController.deleteMyException);
+router.get('/me/working-hours', requireAuth, requireRole('PRIEST'), priestController.getMyWorkingHours);
+router.put('/me/working-hours', requireAuth, requireRole('PRIEST'), validate(priestWorkingHoursSchema), priestController.updateMyWorkingHours);
+
 // Priest specific endpoints by ID
 router.put('/:id', requireAuth, validate(uuidParamSchema, 'params'), validate(updatePriestProfileSchema), priestController.updatePriestProfile);
 router.get('/:id/services', validate(uuidParamSchema, 'params'), priestController.getPriestServices);
@@ -39,12 +53,20 @@ router.put('/:id/services/:serviceId', requireAuth, validate(priestServiceParamS
 router.delete('/:id/services/:serviceId', requireAuth, validate(priestServiceParamSchema, 'params'), priestController.deletePriestService);
 router.patch('/:id/services/:serviceId/toggle', requireAuth, validate(priestServiceParamSchema, 'params'), priestController.togglePriestService);
 
-// Availability Slots
-router.get('/:id/slots', validate(uuidParamSchema, 'params'), priestController.getPriestSlots);
-router.get('/:id/slots/available', validate(uuidParamSchema, 'params'), priestController.getPriestSlots);
-router.post('/:id/slots', requireAuth, validate(uuidParamSchema, 'params'), validate(createPriestSlotSchema), priestController.createPriestSlot);
-router.put('/:id/slots/:slotId', requireAuth, validate(priestSlotParamSchema, 'params'), validate(updatePriestSlotSchema), priestController.updatePriestSlot);
-router.delete('/:id/slots/:slotId', requireAuth, validate(priestSlotParamSchema, 'params'), priestController.deletePriestSlot);
+// Default Working Hours
+router.get('/:id/working-hours', validate(uuidParamSchema, 'params'), priestController.getPriestWorkingHours);
+router.put('/:id/working-hours', requireAuth, validate(uuidParamSchema, 'params'), validate(priestWorkingHoursSchema), priestController.updatePriestWorkingHours);
+
+// Priest Availability Exceptions (Full-Day Leaves & Partial Hour Blackouts)
+router.post('/day-off', requireAuth, availabilityController.markFullDayOff);
+router.post('/block-hours', requireAuth, availabilityController.blockHours);
+router.get('/calendar', availabilityController.getCalendar);
+router.get('/:id/exceptions', validate(uuidParamSchema, 'params'), priestController.getPriestExceptions);
+router.post('/:id/exceptions', requireAuth, validate(uuidParamSchema, 'params'), validate(createPriestAvailabilityExceptionSchema), priestController.createPriestException);
+router.put('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), validate(updatePriestAvailabilityExceptionSchema), priestController.updatePriestException);
+router.delete('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), priestController.deletePriestException);
+
+
 
 export const priestRoutes = router;
 

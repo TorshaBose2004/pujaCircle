@@ -8,7 +8,6 @@ import { Priest } from '@/types/priest.types';
 import { StatCard } from '@/components/common/StatCard';
 import {
   Calendar,
-  Clock,
   CheckCircle2,
   AlertCircle,
   Star,
@@ -26,21 +25,18 @@ export const PriestDashboardPage: React.FC = () => {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [activeServicesCount, setActiveServicesCount] = useState(0);
-  const [availableSlotsCount, setAvailableSlotsCount] = useState(0);
   const [priestProfile, setPriestProfile] = useState<Priest | null>(null);
 
   useEffect(() => {
     async function fetchDashboardData() {
-      const [bookingsData, servicesData, slotsData, profileData] = await Promise.all([
+      const [bookingsData, servicesData, profileData] = await Promise.all([
         bookingApi.getPriestBookings(priestId),
         priestApi.getPriestServices(priestId),
-        priestApi.getPriestSlots(priestId),
         priestApi.getPriestById(priestId),
       ]);
 
       setBookings(bookingsData);
       setActiveServicesCount(servicesData.filter((s) => s.isActive).length);
-      setAvailableSlotsCount(slotsData.filter((s) => s.status === 'AVAILABLE').length);
       if (profileData) setPriestProfile(profileData);
     }
 
@@ -50,6 +46,7 @@ export const PriestDashboardPage: React.FC = () => {
   // Operational metrics
   const pendingRequests = bookings.filter((b) => b.status === 'PENDING');
   const confirmedBookings = bookings.filter((b) => b.status === 'CONFIRMED');
+  const completedBookings = bookings.filter((b) => b.status === 'COMPLETED');
 
   const ratingValue = priestProfile?.rating ? `${priestProfile.rating} / 5.0` : '4.9 / 5.0';
   const reviewCountText = priestProfile?.reviewCount ? `${priestProfile.reviewCount} verified devotee reviews` : 'Verified Gurukul Scholar';
@@ -113,10 +110,10 @@ export const PriestDashboardPage: React.FC = () => {
         />
 
         <StatCard
-          label="Available Calendar Slots"
-          value={availableSlotsCount}
-          subtext="Open hours across next 14 days"
-          icon={Clock}
+          label="Completed Ceremonies"
+          value={completedBookings.length}
+          subtext="Successfully conducted pujas"
+          icon={CheckCircle2}
           accentColor="emerald"
         />
 
@@ -162,8 +159,8 @@ export const PriestDashboardPage: React.FC = () => {
             className="p-4 rounded-md bg-white border border-[hsl(var(--border))] hover:border-[#C59A3F] transition-all flex items-center justify-between"
           >
             <div>
-              <p className="font-bold text-stone-900">Availability & Slots</p>
-              <p className="text-stone-500 mt-0.5">Set weekly rules & direct dates</p>
+              <p className="font-bold text-stone-900">Availability & Schedule</p>
+              <p className="text-stone-500 mt-0.5">Manage working hours & leaves</p>
             </div>
             <ArrowRight className="w-4 h-4 text-[#991B1B]" />
           </Link>
