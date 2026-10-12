@@ -133,7 +133,9 @@ export function calculateDayMuhuratSlots(
   targetDate: string,
   exceptions: PriestException[],
   bookings: any[] = [],
-  slotDurationMinutes: number = 120 // 2-hour standard puja slots
+  slotDurationMinutes: number = 120, // 2-hour standard puja slots
+  defaultStartTime: string = '07:00',
+  defaultEndTime: string = '21:00'
 ): CalculatedSlot[] {
   // Check full day leave
   const dayExceptions = exceptions.filter((e) => e.date === targetDate);
@@ -142,8 +144,10 @@ export function calculateDayMuhuratSlots(
     return [];
   }
 
-  // Base working window: 07:00 AM (420 mins) to 09:00 PM (1260 mins)
-  const baseWindow: TimeInterval[] = [{ start: 7 * 60, end: 21 * 60 }];
+  // Base working window: configurable daily working window (default: 07:00 to 21:00)
+  const startMin = timeToMinutes(defaultStartTime) || (7 * 60);
+  const endMin = timeToMinutes(defaultEndTime) || (21 * 60);
+  const baseWindow: TimeInterval[] = [{ start: startMin, end: endMin }];
 
   // Collect busy intervals
   const busyList: TimeInterval[] = [];

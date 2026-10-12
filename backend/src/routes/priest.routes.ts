@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { priestController } from '../controllers/priest.controller.js';
-import { availabilityController } from '../controllers/availability.controller.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/role.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
@@ -58,9 +57,6 @@ router.get('/:id/working-hours', validate(uuidParamSchema, 'params'), priestCont
 router.put('/:id/working-hours', requireAuth, validate(uuidParamSchema, 'params'), validate(priestWorkingHoursSchema), priestController.updatePriestWorkingHours);
 
 // Priest Availability Exceptions (Full-Day Leaves & Partial Hour Blackouts)
-router.post('/day-off', requireAuth, availabilityController.markFullDayOff);
-router.post('/block-hours', requireAuth, availabilityController.blockHours);
-router.get('/calendar', availabilityController.getCalendar);
 router.get('/:id/exceptions', validate(uuidParamSchema, 'params'), priestController.getPriestExceptions);
 router.post('/:id/exceptions', requireAuth, validate(uuidParamSchema, 'params'), validate(createPriestAvailabilityExceptionSchema), priestController.createPriestException);
 router.put('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), validate(updatePriestAvailabilityExceptionSchema), priestController.updatePriestException);

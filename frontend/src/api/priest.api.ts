@@ -137,8 +137,19 @@ export const priestApi = {
   // Date-Based Muhurat Availability Computations
   getAvailableSlotsForDate: async (priestId: string, date: string): Promise<CalculatedSlot[]> => {
     try {
-      const exceptions = getPriestExceptions(priestId);
-      return calculateDayMuhuratSlots(priestId, date, exceptions);
+      const [exceptions, whData] = await Promise.all([
+        getPriestExceptions(priestId),
+        priestApi.getWorkingHours(priestId),
+      ]);
+      return calculateDayMuhuratSlots(
+        priestId,
+        date,
+        exceptions,
+        [],
+        120,
+        whData?.defaultStartTime || '07:00',
+        whData?.defaultEndTime || '21:00'
+      );
     } catch (error) {
       logAppError('priestApi.getAvailableSlotsForDate', error, { priestId, date });
       return [];

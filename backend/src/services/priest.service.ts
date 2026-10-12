@@ -253,11 +253,30 @@ export class PriestService {
    * Update default working hours window for a priest
    */
   async updateWorkingHours(
-    _priestId: string,
-    _data: PriestWorkingHoursInput
+    priestId: string,
+    data: PriestWorkingHoursInput
   ): Promise<any> {
-    // TODO: [Teammate - Priest] Update defaultStartTime and defaultEndTime in priest_profiles
-    return null;
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (data.defaultStartTime !== undefined) {
+      updateData.defaultStartTime = data.defaultStartTime;
+    }
+    if (data.defaultEndTime !== undefined) {
+      updateData.defaultEndTime = data.defaultEndTime;
+    }
+
+    const [updated] = await db
+      .update(priestProfiles)
+      .set(updateData)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .returning({
+        defaultStartTime: priestProfiles.defaultStartTime,
+        defaultEndTime: priestProfiles.defaultEndTime,
+      });
+
+    return updated || {
+      defaultStartTime: data.defaultStartTime,
+      defaultEndTime: data.defaultEndTime,
+    };
   }
 }
 
