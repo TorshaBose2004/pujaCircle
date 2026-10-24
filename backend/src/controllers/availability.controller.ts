@@ -4,26 +4,36 @@ import { sendSuccess, sendError } from '../views/response.view.js';
 
 /**
  * Controller: Priest Availability & Calendar
- * Minimal and simple request handlers for priest schedule management.
+ * Request handlers for priest schedule management.
  */
 export class AvailabilityController {
   /**
    * POST /day-off
-   * Mark a full day off (07:00 – 21:00)
+   * Mark a full day off based on priest's configured working hours
    */
   async markFullDayOff(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Prioritize authenticated priest user id
       const priestId = req.user?.id || req.body.priestId;
       const { date, reason } = req.body;
 
-      if (!priestId || !date) {
-        sendError(res, 'priestId and date (YYYY-MM-DD) are required', 400);
+      if (!priestId) {
+        sendError(res, 'Authentication required or priestId must be provided', 401);
         return;
       }
 
       const result = await availabilityService.markFullDayOff(priestId, date, reason);
       sendSuccess(res, 'Full day off marked successfully', result, 201);
-    } catch (error) {
+    } catch (error: any) {
+      if (
+        error.message?.includes('not configured') ||
+        error.message?.includes('invalid') ||
+        error.message?.includes('already exists') ||
+        error.message?.includes('confirmed ceremony')
+      ) {
+        sendError(res, error.message, 400);
+        return;
+      }
       next(error);
     }
   }
@@ -34,11 +44,12 @@ export class AvailabilityController {
    */
   async blockHours(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Prioritize authenticated priest user id
       const priestId = req.user?.id || req.body.priestId;
       const { date, startTime, endTime, reason } = req.body;
 
-      if (!priestId || !date || !startTime || !endTime) {
-        sendError(res, 'priestId, date, startTime, and endTime are required', 400);
+      if (!priestId) {
+        sendError(res, 'Authentication required or priestId must be provided', 401);
         return;
       }
 
@@ -50,7 +61,17 @@ export class AvailabilityController {
         reason
       );
       sendSuccess(res, 'Hours blocked successfully', result, 201);
-    } catch (error) {
+    } catch (error: any) {
+      if (
+        error.message?.includes('not configured') ||
+        error.message?.includes('invalid') ||
+        error.message?.includes('already exists') ||
+        error.message?.includes('confirmed ceremony') ||
+        error.message?.includes('later than start')
+      ) {
+        sendError(res, error.message, 400);
+        return;
+      }
       next(error);
     }
   }
@@ -61,12 +82,12 @@ export class AvailabilityController {
    */
   async getCalendar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const priestId = (req.query.priestId as string) || req.user?.id;
-      const startDate = req.query.startDate as string | undefined;
-      const endDate = req.query.endDate as string | undefined;
+      const priestId = req.query.priestId as string || req.user?.id;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
 
       if (!priestId) {
-        sendError(res, 'priestId is required to query calendar availability', 400);
+        sendError(res, 'priestId is required to query calendar', 400);
         return;
       }
 
@@ -75,7 +96,8 @@ export class AvailabilityController {
         startDate,
         endDate
       );
-      sendSuccess(res, '3-month availability calendar retrieved', calendar);
+
+      sendSuccess(res, 'Availability calendar fetched successfully', calendar, 200);
     } catch (error) {
       next(error);
     }
