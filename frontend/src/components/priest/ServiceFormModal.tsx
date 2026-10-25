@@ -6,8 +6,8 @@ import {
   PriestServiceInput,
 } from "@/schemas/priest.schema";
 import { PriestService } from "@/types/priest.types";
-import { catalogApi } from "@/api/catalog.api";
 import { PujaCatalogEntry } from "@/types/catalog.types";
+import { catalogApi } from "@/api/catalog.api";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IndianRupee, Sparkles } from "lucide-react";
+import { IndianRupee, Loader2 } from "lucide-react";
 
 interface ServiceFormModalProps {
   isOpen: boolean;
@@ -36,110 +36,82 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
   onSubmit,
   isLoading = false,
 }) => {
-  const [catalogList, setCatalogList] = useState<PujaCatalogEntry[]>([]);
-
-  useEffect(() => {
-    async function loadCatalog() {
-      const items = await catalogApi.getCatalog();
-      setCatalogList(items || []);
-    }
-    loadCatalog();
-  }, []);
-
-  const [selectedMode, setSelectedMode] = useState<"catalog" | "custom">(
-    "catalog",
-  );
-  const [selectedCatalogId, setSelectedCatalogId] = useState<string>("");
+  const [catalog, setCatalog] = useState<PujaCatalogEntry[]>([]);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
 
   const {
     register,
     handleSubmit,
-    setValue,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<PriestServiceInput>({
     resolver: zodResolver(priestServiceSchema),
     defaultValues: {
       serviceName: "",
-      price: 2100,
-      pujaCatalogId: undefined,
+      pujaCatalogId: "",
+      price: 2500,
       isCustom: false,
+      category: "General",
     },
   });
 
   const watchServiceName = watch("serviceName");
+  const watchCatalogId = watch("pujaCatalogId");
   const watchPrice = watch("price");
+
   const isFormValid = Boolean(
-    watchServiceName?.trim() && Number(watchPrice) > 0,
+    (serviceToEdit ? watchServiceName?.trim() : (watchCatalogId && watchServiceName?.trim())) &&
+    Number(watchPrice) > 0
   );
+
+  // Load master puja catalog when modal is opened for adding a new service
+  useEffect(() => {
+    if (isOpen && !serviceToEdit && catalog.length === 0) {
+      setIsCatalogLoading(true);
+      catalogApi
+        .getCatalog()
+        .then((items) => setCatalog(items || []))
+        .finally(() => setIsCatalogLoading(false));
+    }
+  }, [isOpen, serviceToEdit, catalog.length]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     if (serviceToEdit) {
-      if (serviceToEdit.pujaCatalogId) {
-        setSelectedMode("catalog");
-        setSelectedCatalogId(serviceToEdit.pujaCatalogId);
-      } else {
-        setSelectedMode("custom");
-        setSelectedCatalogId("");
-      }
-
       reset({
         serviceName: serviceToEdit.serviceName,
+        pujaCatalogId: serviceToEdit.pujaCatalogId || "",
         price: serviceToEdit.price,
-        pujaCatalogId: serviceToEdit.pujaCatalogId,
-        isCustom: serviceToEdit.isCustom ?? !serviceToEdit.pujaCatalogId,
-        category: serviceToEdit.category,
-        samagriList: serviceToEdit.samagriList,
+        isCustom: false,
+        category: serviceToEdit.category || "General",
+        samagriList: serviceToEdit.samagriList || [],
       });
     } else {
-      // New service default to first catalog entry
-      const firstEntry = catalogList[0];
-      if (firstEntry) {
-        setSelectedMode("catalog");
-        setSelectedCatalogId(firstEntry.id);
-        reset({
-          serviceName: firstEntry.name,
-          price: 2500,
-          pujaCatalogId: firstEntry.id,
-          isCustom: false,
-          category: firstEntry.category,
-          samagriList: firstEntry.samagriList,
-        });
-      } else {
-        setSelectedMode("custom");
-        setSelectedCatalogId("");
-        reset({
-          serviceName: "",
-          price: 2100,
-          pujaCatalogId: undefined,
-          isCustom: true,
-        });
-      }
+      reset({
+        serviceName: "",
+        pujaCatalogId: "",
+        price: 2500,
+        isCustom: false,
+        category: "General",
+        samagriList: [],
+      });
     }
-  }, [serviceToEdit, reset, isOpen, catalogList]);
+  }, [serviceToEdit, reset, isOpen]);
 
-  const handleCatalogSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === "__custom__") {
-      setSelectedMode("custom");
-      setSelectedCatalogId("");
-      setValue("pujaCatalogId", undefined);
-      setValue("isCustom", true);
-      setValue("serviceName", "");
+  const handleSelectCatalogItem = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const catalogId = e.target.value;
+    const item = catalog.find((c) => c.id === catalogId);
+    if (item) {
+      setValue("pujaCatalogId", item.id, { shouldValidate: true });
+      setValue("serviceName", item.name, { shouldValidate: true });
+      setValue("category", item.category || "General");
+      setValue("samagriList", item.samagriList || []);
     } else {
-      setSelectedMode("catalog");
-      setSelectedCatalogId(val);
-      const entry = catalogList.find((c) => c.id === val);
-      if (entry) {
-        setValue("serviceName", entry.name);
-        setValue("pujaCatalogId", entry.id);
-        setValue("isCustom", false);
-        setValue("category", entry.category);
-        setValue("samagriList", entry.samagriList);
-      }
+      setValue("pujaCatalogId", "", { shouldValidate: true });
+      setValue("serviceName", "", { shouldValidate: true });
     }
   };
 
@@ -154,12 +126,13 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
         <DialogHeader>
           <DialogTitle className="font-serif text-lg">
             {serviceToEdit
-              ? "Edit Ceremony Service"
+              ? "Edit Ceremony Offering"
               : "Add New Ceremony Offering"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Select a verified ritual from the Master Catalog or define a custom
-            ceremony.
+            {serviceToEdit
+              ? "Update your recommended cash dakshina rate for this ceremony."
+              : "Select a ceremony from the sacred puja catalog and enter your recommended cash dakshina amount."}
           </DialogDescription>
         </DialogHeader>
 
@@ -167,44 +140,34 @@ export const ServiceFormModal: React.FC<ServiceFormModalProps> = ({
           onSubmit={handleSubmit(handleFormSubmit)}
           className="space-y-4 pt-2"
         >
-          {/* Catalog Selection */}
+          {/* Ceremony Selection */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Select from Master Puja Catalog</span>
-            </Label>
-            <select
-              value={
-                selectedMode === "custom" ? "__custom__" : selectedCatalogId
-              }
-              onChange={handleCatalogSelect}
-              className="w-full text-xs h-9 rounded-md border border-input bg-background px-3 py-1 shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <optgroup label="Master Catalog Pujas (Recommended for Discovery)">
-                {catalogList.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name} ({entry.category})
+            <Label className="text-xs font-medium">Ceremony Name</Label>
+            {serviceToEdit ? (
+              <Input
+                value={serviceToEdit.serviceName}
+                readOnly
+                className="text-xs bg-muted/50 cursor-not-allowed text-stone-700 font-medium"
+              />
+            ) : isCatalogLoading ? (
+              <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-input text-xs text-stone-500 bg-stone-50">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
+                <span>Loading sacred ceremonies from catalog...</span>
+              </div>
+            ) : (
+              <select
+                value={watchCatalogId || ""}
+                onChange={handleSelectCatalogItem}
+                className="w-full h-10 px-3 py-2 text-xs rounded-md border border-input bg-white shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-stone-900 cursor-pointer"
+              >
+                <option value="">-- Select Ceremony from Puja Catalog --</option>
+                {catalog.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
-              </optgroup>
-              <optgroup label="Custom Options">
-                <option value="__custom__">+ Other / Custom Ceremony</option>
-              </optgroup>
-            </select>
-          </div>
-
-          {/* Service Name (Editable or prefilled) */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Ceremony Name{" "}
-              {selectedMode === "catalog" && "(from Master Catalog)"}
-            </Label>
-            <Input
-              placeholder="e.g. Griha Pravesh & Vastu Shanti"
-              {...register("serviceName")}
-              readOnly={selectedMode === "catalog"}
-              className={`text-xs ${selectedMode === "catalog" ? "bg-muted/50 cursor-not-allowed text-stone-700 font-medium" : ""}`}
-            />
+              </select>
+            )}
             {errors.serviceName && (
               <p className="text-[11px] text-destructive">
                 {errors.serviceName.message}

@@ -1,16 +1,16 @@
-import { eq, or } from 'drizzle-orm';
+import { and, eq, ilike, ne, or } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { users, priestProfiles, priestServices, priestAvailabilityExceptions } from '../models/index.js';
+import { users, priestProfiles, priestServices, priestAvailabilityExceptions, pujaCatalog } from '../models/index.js';
 import {
   UpdatePriestProfileInput,
   CreatePriestServiceInput,
   UpdatePriestServiceInput,
   PriestFilterParams,
-  CreatePriestAvailabilityExceptionInput,
   UpdatePriestAvailabilityExceptionInput,
   PriestWorkingHoursInput,
 } from '../schemas/priest.schema.js';
 import { cloudinaryService } from './cloudinary.service.js';
+import { toISTDateString, toISTTimeString } from './availability.service.js';
 
 
 /**
@@ -154,7 +154,9 @@ export class PriestService {
   }
 
   /**
-   * Create a new ritual service offering for a priest
+   * Create a new ritual service offering for a priest.
+   * Priest can only add services from the authoritative puja_catalog table.
+   * Prevents adding duplicate services for the same priest.
    */
   async createPriestService(priestId: string, data: CreatePriestServiceInput): Promise<any> {
     const [profile] = await db
@@ -167,16 +169,58 @@ export class PriestService {
       throw new Error(`Priest profile not found for ID: ${priestId}`);
     }
 
+    // Must exist in puja_catalog table
+    let catalogEntry = null;
+
+    if (data.pujaCatalogId) {
+      const [entry] = await db
+        .select()
+        .from(pujaCatalog)
+        .where(eq(pujaCatalog.id, data.pujaCatalogId))
+        .limit(1);
+      catalogEntry = entry;
+    } else if (data.serviceName) {
+      const [entry] = await db
+        .select()
+        .from(pujaCatalog)
+        .where(ilike(pujaCatalog.name, data.serviceName.trim()))
+        .limit(1);
+      catalogEntry = entry;
+    }
+
+    if (!catalogEntry) {
+      throw new Error('Please select a valid ceremony from the sacred puja catalog.');
+    }
+
+    // Check if priest already added this service (by catalog ID or canonical name)
+    const [existing] = await db
+      .select({ id: priestServices.id })
+      .from(priestServices)
+      .where(
+        and(
+          eq(priestServices.priestId, profile.id),
+          or(
+            eq(priestServices.pujaCatalogId, catalogEntry.id),
+            ilike(priestServices.serviceName, catalogEntry.name)
+          )
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      throw new Error(`Service "${catalogEntry.name}" has already been added.`);
+    }
+
     const [record] = await db
       .insert(priestServices)
       .values({
         priestId: profile.id,
-        serviceName: data.serviceName,
-        pujaCatalogId: data.pujaCatalogId || null,
-        category: data.category || 'General',
-        samagriList: data.samagriList || [],
+        serviceName: catalogEntry.name,
+        pujaCatalogId: catalogEntry.id,
+        category: catalogEntry.category || 'General',
+        samagriList: catalogEntry.samagriList || [],
         price: data.price,
-        isCustom: data.isCustom ?? false,
+        isCustom: false,
         isActive: data.isActive ?? true,
       })
       .returning();
@@ -185,30 +229,117 @@ export class PriestService {
   }
 
   /**
-   * Update service pricing and samagri list for a priest service
+   * Update service pricing and details for a priest service
    */
   async updatePriestService(
-    _priestId: string,
-    _serviceId: string,
-    _data: UpdatePriestServiceInput
+    priestId: string,
+    serviceId: string,
+    data: UpdatePriestServiceInput
   ): Promise<any> {
-    // TODO: [Teammate - Priest] Update service in priest_services table by id and priestId
-    return null;
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    if (!profile) {
+      throw new Error(`Priest profile not found for ID: ${priestId}`);
+    }
+
+    // Check if the service exists and belongs to this priest
+    const [currentService] = await db
+      .select()
+      .from(priestServices)
+      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, profile.id)))
+      .limit(1);
+
+    if (!currentService) {
+      throw new Error(`Service not found for ID: ${serviceId}`);
+    }
+
+    // Only check name collision if actually changing the service name to a DIFFERENT name
+    if (data.serviceName) {
+      const normalizedName = data.serviceName.trim();
+      if (normalizedName.toLowerCase() !== currentService.serviceName.toLowerCase()) {
+        const [duplicate] = await db
+          .select({ id: priestServices.id })
+          .from(priestServices)
+          .where(
+            and(
+              eq(priestServices.priestId, profile.id),
+              ilike(priestServices.serviceName, normalizedName)
+            )
+          )
+          .limit(1);
+
+        if (duplicate) {
+          throw new Error(`Another service named "${data.serviceName}" already exists.`);
+        }
+      }
+    }
+
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (data.serviceName !== undefined) updateData.serviceName = data.serviceName.trim();
+    if (data.price !== undefined) updateData.price = data.price;
+    if (data.category !== undefined) updateData.category = data.category;
+    if (data.samagriList !== undefined) updateData.samagriList = data.samagriList;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    const [updated] = await db
+      .update(priestServices)
+      .set(updateData)
+      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, profile.id)))
+      .returning();
+
+    return updated;
   }
 
   /**
    * Remove a service offering from a priest's roster
    */
-  async deletePriestService(_priestId: string, _serviceId: string): Promise<void> {
-    // TODO: [Teammate - Priest] Delete service from priest_services table by id and priestId
+  async deletePriestService(priestId: string, serviceId: string): Promise<void> {
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    const targetPriestId = profile ? profile.id : priestId;
+
+    await db
+      .delete(priestServices)
+      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, targetPriestId)));
   }
 
   /**
    * Toggle service active/inactive status for bookings
    */
-  async togglePriestService(_priestId: string, _serviceId: string): Promise<any> {
-    // TODO: [Teammate - Priest] Toggle isActive flag in priest_services table
-    return null;
+  async togglePriestService(priestId: string, serviceId: string): Promise<any> {
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
+      .limit(1);
+
+    const targetPriestId = profile ? profile.id : priestId;
+
+    const [existing] = await db
+      .select({ id: priestServices.id, isActive: priestServices.isActive })
+      .from(priestServices)
+      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, targetPriestId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error(`Service not found for ID: ${serviceId}`);
+    }
+
+    const [updated] = await db
+      .update(priestServices)
+      .set({ isActive: !existing.isActive, updatedAt: new Date() })
+      .where(eq(priestServices.id, serviceId))
+      .returning();
+
+    return updated;
   }
 
 
@@ -235,10 +366,10 @@ export class PriestService {
     return rows.map((r) => {
       const start = new Date(r.startAt);
       const end = new Date(r.endAt);
-      const dateStr = start.toISOString().split('T')[0];
-      const startH = String(start.getUTCHours()).padStart(2, '0') + ':' + String(start.getUTCMinutes()).padStart(2, '0');
-      const endH = String(end.getUTCHours()).padStart(2, '0') + ':' + String(end.getUTCMinutes()).padStart(2, '0');
-      const isFullLeave = (startH === '07:00' && endH === '21:00') || (startH === '00:00' && endH === '23:59');
+      const dateStr = toISTDateString(start);
+      const startH = toISTTimeString(start);
+      const endH = toISTTimeString(end);
+      const isFullLeave = (r.reason?.includes('Full Day') || (startH === '07:00' && endH === '21:00') || (startH === '00:00' && endH === '23:59'));
 
       return {
         id: r.id,
@@ -254,56 +385,6 @@ export class PriestService {
         createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
       };
     });
-  }
-
-  /**
-   * Create a new availability exception (Mark Full Day Off or Block Specific Hours)
-   */
-  async createPriestException(
-    priestId: string,
-    data: CreatePriestAvailabilityExceptionInput
-  ): Promise<any> {
-    const [profile] = await db
-      .select({ id: priestProfiles.id })
-      .from(priestProfiles)
-      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
-      .limit(1);
-
-    if (!profile) {
-      throw new Error(`Priest profile not found for ID: ${priestId}`);
-    }
-
-    const [record] = await db
-      .insert(priestAvailabilityExceptions)
-      .values({
-        priestId: profile.id,
-        exceptionType: data.exceptionType || 'BLOCK',
-        startAt: new Date(data.startAt),
-        endAt: new Date(data.endAt),
-        reason: data.reason || null,
-      })
-      .returning();
-
-    const start = new Date(record.startAt);
-    const end = new Date(record.endAt);
-    const dateStr = start.toISOString().split('T')[0];
-    const startH = String(start.getUTCHours()).padStart(2, '0') + ':' + String(start.getUTCMinutes()).padStart(2, '0');
-    const endH = String(end.getUTCHours()).padStart(2, '0') + ':' + String(end.getUTCMinutes()).padStart(2, '0');
-    const isFullLeave = (startH === '07:00' && endH === '21:00') || (startH === '00:00' && endH === '23:59');
-
-    return {
-      id: record.id,
-      priestId: record.priestId,
-      date: dateStr,
-      type: isFullLeave ? 'FULL_DAY_LEAVE' : 'PARTIAL_BLACKOUT',
-      startTime: startH,
-      endTime: endH,
-      exceptionType: record.exceptionType,
-      startAt: record.startAt ? new Date(record.startAt).toISOString() : '',
-      endAt: record.endAt ? new Date(record.endAt).toISOString() : '',
-      reason: record.reason || '',
-      createdAt: record.createdAt ? new Date(record.createdAt).toISOString() : new Date().toISOString(),
-    };
   }
 
   /**

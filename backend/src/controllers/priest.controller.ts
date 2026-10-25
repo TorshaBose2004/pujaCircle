@@ -142,52 +142,56 @@ export class PriestController {
   /**
    * POST /api/v1/priests/:id/services
    */
-  async createPriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createPriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
-      const service = await priestService.createPriestService(req.params.id, req.body);
+      const priestId = req.user?.id || req.params.id;
+      const service = await priestService.createPriestService(priestId, req.body);
       sendSuccess(res, 'Service offering created.', service, 201);
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      sendError(res, error.message || 'Failed to create service offering.', 400);
     }
   }
 
   /**
    * PUT /api/v1/priests/:id/services/:serviceId
    */
-  async updatePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updatePriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
+      const priestId = req.user?.id || req.params.id;
       const updated = await priestService.updatePriestService(
-        req.params.id,
+        priestId,
         req.params.serviceId,
         req.body
       );
       sendSuccess(res, 'Service offering updated.', updated);
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      sendError(res, error.message || 'Failed to update service offering.', 400);
     }
   }
 
   /**
    * DELETE /api/v1/priests/:id/services/:serviceId
    */
-  async deletePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deletePriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
-      await priestService.deletePriestService(req.params.id, req.params.serviceId);
+      const priestId = req.user?.id || req.params.id;
+      await priestService.deletePriestService(priestId, req.params.serviceId);
       sendSuccess(res, 'Service offering removed.');
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      sendError(res, error.message || 'Failed to delete service offering.', 400);
     }
   }
 
   /**
    * PATCH /api/v1/priests/:id/services/:serviceId/toggle
    */
-  async togglePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async togglePriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
-      const result = await priestService.togglePriestService(req.params.id, req.params.serviceId);
+      const priestId = req.user?.id || req.params.id;
+      const result = await priestService.togglePriestService(priestId, req.params.serviceId);
       sendSuccess(res, 'Service status toggled.', result);
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      sendError(res, error.message || 'Failed to toggle service status.', 400);
     }
   }
 
@@ -203,22 +207,6 @@ export class PriestController {
       }
       const exceptions = await priestService.getPriestExceptions(req.user.id, req.query as any);
       sendSuccess(res, 'Priest availability exceptions retrieved.', exceptions);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * POST /api/v1/priests/me/exceptions
-   */
-  async createMyException(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user) {
-        sendError(res, 'Unauthorized session', 401);
-        return;
-      }
-      const exception = await priestService.createPriestException(req.user.id, req.body);
-      sendSuccess(res, 'Availability exception created successfully.', exception, 201);
     } catch (error) {
       next(error);
     }
@@ -247,18 +235,6 @@ export class PriestController {
     try {
       const exceptions = await priestService.getPriestExceptions(req.params.id, req.query as any);
       sendSuccess(res, 'Priest availability exceptions retrieved.', exceptions);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * POST /api/v1/priests/:id/exceptions
-   */
-  async createPriestException(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const exception = await priestService.createPriestException(req.params.id, req.body);
-      sendSuccess(res, 'Availability exception created successfully.', exception, 201);
     } catch (error) {
       next(error);
     }

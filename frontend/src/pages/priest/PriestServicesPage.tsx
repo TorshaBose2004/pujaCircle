@@ -5,7 +5,7 @@ import { PriestServiceInput } from '@/schemas/priest.schema';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ServiceFormModal } from '@/components/priest/ServiceFormModal';
-import { Plus, Edit2, Power } from 'lucide-react';
+import { Plus, Edit2, Power, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
@@ -58,6 +58,7 @@ export const PriestServicesPage: React.FC = () => {
         const res = await priestApi.createPriestService(priestId, {
           serviceName: data.serviceName,
           price: data.price,
+          pujaCatalogId: data.pujaCatalogId,
         });
         if (res.success) {
           toast.success('Ceremony offering added.');
@@ -86,6 +87,23 @@ export const PriestServicesPage: React.FC = () => {
     }
   };
 
+  const handleDelete = async (serviceId: string, serviceName: string) => {
+    if (!window.confirm(`Are you sure you want to remove "${serviceName}"?`)) {
+      return;
+    }
+    try {
+      const res = await priestApi.deletePriestService(serviceId, priestId);
+      if (res.success) {
+        toast.success(`"${serviceName}" removed.`);
+        fetchServices();
+      } else {
+        toast.error(res.message || 'Failed to remove service.');
+      }
+    } catch {
+      toast.error('Failed to remove service.');
+    }
+  };
+
   return (
     <div className="space-y-6 w-full max-w-7xl text-stone-900 pb-12">
       {/* Header */}
@@ -108,7 +126,7 @@ export const PriestServicesPage: React.FC = () => {
           onClick={handleOpenCreate}
           className="gap-2 text-xs h-11 px-5 bg-[#780016] hover:bg-red-800 text-white font-bold border border-amber-400 rounded-md shadow-xs cursor-pointer shrink-0 puja-btn-tap"
         >
-          <Plus className="h-4 w-4" /> Add Custom Ritual Offering
+          <Plus className="h-4 w-4" /> Add Ceremony Offering
         </Button>
       </div>
 
@@ -180,6 +198,14 @@ export const PriestServicesPage: React.FC = () => {
                     >
                       <Power className="h-3.5 w-3.5" />
                       {service.isActive ? 'Deactivate' : 'Activate'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(service.id, service.serviceName)}
+                      className="h-10 px-3 text-xs gap-1.5 w-full sm:w-auto rounded-md font-bold text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
                     </Button>
                   </div>
                 </div>

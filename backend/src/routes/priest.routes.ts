@@ -8,7 +8,6 @@ import {
   updatePriestProfileSchema,
   createPriestServiceSchema,
   updatePriestServiceSchema,
-  createPriestAvailabilityExceptionSchema,
   updatePriestAvailabilityExceptionSchema,
   priestWorkingHoursSchema,
 } from '../schemas/priest.schema.js';
@@ -39,7 +38,6 @@ router.delete('/me/services/:serviceId', requireAuth, requireRole('PRIEST'), val
 
 // Protected priest availability & leaves self-management
 router.get('/me/exceptions', requireAuth, requireRole('PRIEST'), priestController.getMyExceptions);
-router.post('/me/exceptions', requireAuth, requireRole('PRIEST'), validate(createPriestAvailabilityExceptionSchema), priestController.createMyException);
 router.delete('/me/exceptions/:exceptionId', requireAuth, requireRole('PRIEST'), validate(exceptionIdParamSchema, 'params'), priestController.deleteMyException);
 router.get('/me/working-hours', requireAuth, requireRole('PRIEST'), priestController.getMyWorkingHours);
 router.put('/me/working-hours', requireAuth, requireRole('PRIEST'), validate(priestWorkingHoursSchema), priestController.updateMyWorkingHours);
@@ -58,7 +56,6 @@ router.put('/:id/working-hours', requireAuth, validate(uuidParamSchema, 'params'
 
 // Priest Availability Exceptions (Full-Day Leaves & Partial Hour Blackouts)
 router.get('/:id/exceptions', validate(uuidParamSchema, 'params'), priestController.getPriestExceptions);
-router.post('/:id/exceptions', requireAuth, validate(uuidParamSchema, 'params'), validate(createPriestAvailabilityExceptionSchema), priestController.createPriestException);
 router.put('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), validate(updatePriestAvailabilityExceptionSchema), priestController.updatePriestException);
 router.delete('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), priestController.deletePriestException);
 

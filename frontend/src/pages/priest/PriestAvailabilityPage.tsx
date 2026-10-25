@@ -51,6 +51,7 @@ export const PriestAvailabilityPage: React.FC = () => {
     defaultEndTime: '18:00',
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modals State
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
@@ -139,42 +140,60 @@ export const PriestAvailabilityPage: React.FC = () => {
 
   // Toggle Full Day Leave
   const handleToggleFullDayLeave = async () => {
+    if (isSubmitting) return;
+
     const existingLeave = exceptions.find(
       (e) => e.date === selectedDate && e.type === 'FULL_DAY_LEAVE'
     );
 
     if (existingLeave) {
       try {
-        await priestApi.deletePriestException(existingLeave.id, priestId);
+        setIsSubmitting(true);
+        const res = await priestApi.deletePriestException(existingLeave.id, priestId);
+        if (res && res.success === false) {
+          toast.error(res.message || 'Failed to remove leave.');
+          return;
+        }
         setExceptions((prev) => prev.filter((e) => e.id !== existingLeave.id));
+        await loadScheduleData();
         toast.success(`Leave removed for ${formatFullDate(selectedDate)}. You are now available ${workingHoursDisplay}.`);
       } catch {
         toast.error('Failed to remove leave.');
+      } finally {
+        setIsSubmitting(false);
       }
     } else {
       try {
-        const res = await priestApi.createPriestException(priestId, {
+        setIsSubmitting(true);
+        const res = await priestApi.markFullDayOff({
           date: selectedDate,
-          startTime: '07:00',
-          endTime: '21:00',
           reason: 'Full Day Off / Leave',
-          exceptionType: 'BLOCK',
+          priestId,
         });
+
+        if (res && res.success === false) {
+          toast.error(res.message || 'Failed to mark day off.');
+          return;
+        }
+
         const saved = (res && res.data) ? res.data : res;
         const newLeave: PriestException = {
           id: saved?.id || `leave-${Date.now()}`,
           priestId,
           date: selectedDate,
           type: 'FULL_DAY_LEAVE',
-          startTime: '07:00',
-          endTime: '21:00',
-          reason: 'Full Day Off / Leave',
+          startTime: saved?.startTime || workingHours.defaultStartTime,
+          endTime: saved?.endTime || workingHours.defaultEndTime,
+          reason: saved?.reason || 'Full Day Off / Leave',
           createdAt: saved?.createdAt || new Date().toISOString(),
         };
         setExceptions((prev) => [...prev.filter((e) => e.id !== newLeave.id), newLeave]);
+        await loadScheduleData();
         toast.success(`Marked ${formatFullDate(selectedDate)} as Day Off.`);
-      } catch {
-        toast.error('Failed to mark day off.');
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to mark day off.');
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -182,28 +201,38 @@ export const PriestAvailabilityPage: React.FC = () => {
   // Add Partial Hour Blackout
   const handleSaveBlackout = async (startTime: string, endTime: string, reason: string) => {
     try {
-      const res = await priestApi.createPriestException(priestId, {
+      setIsSubmitting(true);
+      const res = await priestApi.blockHours({
         date: selectedDate,
         startTime,
         endTime,
         reason,
-        exceptionType: 'BLOCK',
+        priestId,
       });
+
+      if (res && res.success === false) {
+        toast.error(res.message || 'Failed to block hours.');
+        return;
+      }
+
       const saved = (res && res.data) ? res.data : res;
       const newBlackout: PriestException = {
         id: saved?.id || `blackout-${Date.now()}`,
         priestId,
         date: selectedDate,
         type: 'PARTIAL_BLACKOUT',
-        startTime,
-        endTime,
-        reason,
+        startTime: saved?.startTime || startTime,
+        endTime: saved?.endTime || endTime,
+        reason: saved?.reason || reason,
         createdAt: saved?.createdAt || new Date().toISOString(),
       };
       setExceptions((prev) => [...prev.filter((e) => e.id !== newBlackout.id), newBlackout]);
+      await loadScheduleData();
       toast.success(`Blocked ${formatTimeAmPm(startTime)} – ${formatTimeAmPm(endTime)} on ${formatFullDate(selectedDate)}.`);
-    } catch {
-      toast.error('Failed to block hours.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to block hours.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -506,12 +535,13 @@ export const PriestAvailabilityPage: React.FC = () => {
           {/* Quick Action Buttons */}
           <div className="space-y-3">
             <Button
+              disabled={isSubmitting || isLoading}
               onClick={handleToggleFullDayLeave}
               className={`w-full justify-center gap-2 h-11 text-xs font-bold shadow-xs cursor-pointer ${
                 isSelectedFullLeave
                   ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
                   : 'bg-red-800 hover:bg-red-900 text-white'
-              }`}
+              } ${(isSubmitting || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSelectedFullLeave ? (
                 <>
@@ -527,8 +557,11 @@ export const PriestAvailabilityPage: React.FC = () => {
             {!isSelectedFullLeave && (
               <Button
                 variant="outline"
+                disabled={isSubmitting || isLoading}
                 onClick={() => setIsBlockModalOpen(true)}
-                className="w-full justify-center gap-2 h-11 border-2 border-amber-400 text-stone-900 hover:bg-amber-50 font-bold text-xs cursor-pointer"
+                className={`w-full justify-center gap-2 h-11 border-2 border-amber-400 text-stone-900 hover:bg-amber-50 font-bold text-xs cursor-pointer ${
+                  (isSubmitting || isLoading) ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 <Clock className="h-4 w-4 text-amber-700" />
                 <span>Block Specific Hours (e.g. 1 PM - 4 PM)</span>

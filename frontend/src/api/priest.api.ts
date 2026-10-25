@@ -74,7 +74,10 @@ export const priestApi = {
     return priestApi.getPriestServices();
   },
 
-  createPriestService: async (priestId: string | undefined, data: { serviceName: string; price: number }) => {
+  createPriestService: async (
+    priestId: string | undefined,
+    data: { serviceName?: string; price: number; pujaCatalogId?: string }
+  ) => {
     try {
       const activeId = priestId || priestApi.resolveCurrentPriestId();
       const res = await apiClient.post(`/priests/${activeId}/services`, data);
@@ -173,26 +176,44 @@ export const priestApi = {
     return priestApi.getPriestExceptions(undefined, query);
   },
 
-  createPriestException: async (
-    priestId: string | undefined,
-    payload: { exceptionType?: string; startAt?: string; endAt?: string; date?: string; startTime?: string; endTime?: string; reason?: string }
+  markFullDayOff: async (
+    payload: { date: string; reason?: string; priestId?: string }
   ) => {
     try {
-      const activeId = priestId || priestApi.resolveCurrentPriestId();
-      const startAt = payload.startAt || (payload.date ? `${payload.date}T${payload.startTime || '07:00'}:00.000Z` : '');
-      const endAt = payload.endAt || (payload.date ? `${payload.date}T${payload.endTime || '21:00'}:00.000Z` : '');
-      const res = await apiClient.post(`/priests/${activeId}/exceptions`, {
-        exceptionType: payload.exceptionType || 'BLOCK',
-        startAt,
-        endAt,
-        reason: payload.reason || '',
+      const activeId = payload.priestId || priestApi.resolveCurrentPriestId();
+      const res = await apiClient.post('/availability/day-off', {
+        date: payload.date,
+        reason: payload.reason || 'Full Day Off / Leave',
+        priestId: activeId,
       });
       return res as any;
     } catch (error) {
-      logAppError('priestApi.createPriestException', error, { priestId, payload });
+      logAppError('priestApi.markFullDayOff', error, { payload });
       return {
         success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to save availability exception.'),
+        message: getUserFriendlyErrorMessage(error, 'Failed to mark day off.'),
+      };
+    }
+  },
+
+  blockHours: async (
+    payload: { date: string; startTime: string; endTime: string; reason?: string; priestId?: string }
+  ) => {
+    try {
+      const activeId = payload.priestId || priestApi.resolveCurrentPriestId();
+      const res = await apiClient.post('/availability/block-hours', {
+        date: payload.date,
+        startTime: payload.startTime,
+        endTime: payload.endTime,
+        reason: payload.reason || 'Blocked Hours',
+        priestId: activeId,
+      });
+      return res as any;
+    } catch (error) {
+      logAppError('priestApi.blockHours', error, { payload });
+      return {
+        success: false,
+        message: getUserFriendlyErrorMessage(error, 'Failed to block hours.'),
       };
     }
   },

@@ -19,7 +19,7 @@ export const updatePriestProfileSchema = z.object({
 });
 
 export const createPriestServiceSchema = z.object({
-  serviceName: z.string().trim().min(2, 'Service name must be at least 2 characters').max(255),
+  serviceName: z.string().trim().max(255).optional(),
   pujaCatalogId: z.string().uuid('Invalid catalog ID format').optional(),
   category: z.string().trim().max(100).default('General'),
   samagriList: z.array(z.string().trim().max(255)).default([]),

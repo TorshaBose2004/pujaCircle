@@ -1,7 +1,21 @@
 import { and, eq, or } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { priestAvailabilityExceptions, priestProfiles, PriestAvailabilityException } from '../models/priest.model.js';
+import { priestAvailabilityExceptions, priestProfiles } from '../models/priest.model.js';
 import { bookings } from '../models/booking.model.js';
+
+export interface FormattedAvailabilityException {
+  id: string;
+  priestId: string;
+  date: string;
+  type: 'FULL_DAY_LEAVE' | 'PARTIAL_BLACKOUT';
+  startTime: string;
+  endTime: string;
+  exceptionType: string;
+  startAt: string;
+  endAt: string;
+  reason: string;
+  createdAt: string;
+}
 
 /**
  * Represents daily availability status for the calendar grid
@@ -17,26 +31,46 @@ export interface DayAvailability {
   }>;
 }
 
+/** Helper: format Date object to YYYY-MM-DD in Asia/Kolkata */
+export function toISTDateString(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date);
+}
+
+/** Helper: format Date object to HH:mm in Asia/Kolkata */
+export function toISTTimeString(date: Date): string {
+  return date.toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** Helper: parse local date and time string in Asia/Kolkata into Date object */
+export function parseISTDateTime(date: string, time: string): Date {
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  return new Date(`${date}T${normalizedTime}+05:30`);
+}
+
 /**
  * Service Layer: Priest Availability & Scheduling
- * Implements empty signatures per architectural specification.
  */
 export class AvailabilityService {
   /**
-   * Mark a priest's entire day off (07:00 – 21:00 default working window).
-   *
-   * @param priestId - Target priest ID
-   * @param date - Date formatted as YYYY-MM-DD
-   * @param reason - Optional reason (e.g., 'Full Day Leave', 'Festival')
-   * @returns Newly created availability exception record
+   * Mark a priest's entire working day off using configured working hours.
+   * Throws an error if default working hours are not configured.
    */
   async markFullDayOff(
     priestId: string,
     date: string,
     reason?: string
-  ): Promise<PriestAvailabilityException> {
+  ): Promise<FormattedAvailabilityException> {
     const [profile] = await db
-      .select({ id: priestProfiles.id })
+      .select({
+        id: priestProfiles.id,
+        defaultStartTime: priestProfiles.defaultStartTime,
+        defaultEndTime: priestProfiles.defaultEndTime,
+      })
       .from(priestProfiles)
       .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
       .limit(1);
@@ -45,29 +79,62 @@ export class AvailabilityService {
       throw new Error(`Priest profile not found for ID: ${priestId}`);
     }
 
+    if (!profile.defaultStartTime || !profile.defaultEndTime) {
+      throw new Error(
+        'Default working hours are not configured for this priest profile. Please configure working hours first.'
+      );
+    }
+
+    const startTime = profile.defaultStartTime.slice(0, 5);
+    const endTime = profile.defaultEndTime.slice(0, 5);
+
+    if (startTime >= endTime) {
+      throw new Error('Configured working hours are invalid: start time must be earlier than end time.');
+    }
+
+    // 1. Check confirmed booking overlap across working hours
+    const hasBookingOverlap = await this.checkBookingOverlap(profile.id, date, startTime, endTime);
+    if (hasBookingOverlap) {
+      throw new Error('Cannot mark day off: you have confirmed ceremony bookings during your working hours on this date.');
+    }
+
+    // 2. Check existing exception overlap
+    const startAt = parseISTDateTime(date, startTime);
+    const endAt = parseISTDateTime(date, endTime);
+
+    const hasExceptionOverlap = await this.checkExceptionOverlap(profile.id, startAt, endAt);
+    if (hasExceptionOverlap) {
+      throw new Error('An availability block or day off already exists for this date.');
+    }
+
     const [record] = await db
       .insert(priestAvailabilityExceptions)
       .values({
         priestId: profile.id,
         exceptionType: 'BLOCK',
-        startAt: new Date(`${date}T07:00:00Z`),
-        endAt: new Date(`${date}T21:00:00Z`),
-        reason: reason || 'Full Day Leave',
+        startAt,
+        endAt,
+        reason: reason || 'Full Day Off / Leave',
       })
       .returning();
 
-    return record;
+    return {
+      id: record.id,
+      priestId: record.priestId,
+      date,
+      type: 'FULL_DAY_LEAVE',
+      startTime,
+      endTime,
+      exceptionType: record.exceptionType,
+      startAt: record.startAt ? new Date(record.startAt).toISOString() : '',
+      endAt: record.endAt ? new Date(record.endAt).toISOString() : '',
+      reason: record.reason || '',
+      createdAt: record.createdAt ? new Date(record.createdAt).toISOString() : new Date().toISOString(),
+    };
   }
 
   /**
    * Block specific hours on a given day for a priest.
-   *
-   * @param priestId - Target priest ID
-   * @param date - Date formatted as YYYY-MM-DD
-   * @param startTime - Start time in 24hr format HH:mm (e.g. '13:00')
-   * @param endTime - End time in 24hr format HH:mm (e.g. '16:00')
-   * @param reason - Optional reason for blackout
-   * @returns Newly created availability exception record
    */
   async blockHours(
     priestId: string,
@@ -75,7 +142,14 @@ export class AvailabilityService {
     startTime: string,
     endTime: string,
     reason?: string
-  ): Promise<PriestAvailabilityException> {
+  ): Promise<FormattedAvailabilityException> {
+    const sTime = startTime.slice(0, 5);
+    const eTime = endTime.slice(0, 5);
+
+    if (sTime >= eTime) {
+      throw new Error('End time must be later than start time.');
+    }
+
     const [profile] = await db
       .select({ id: priestProfiles.id })
       .from(priestProfiles)
@@ -86,29 +160,73 @@ export class AvailabilityService {
       throw new Error(`Priest profile not found for ID: ${priestId}`);
     }
 
+    // 1. Check confirmed booking overlap
+    const hasBookingOverlap = await this.checkBookingOverlap(profile.id, date, sTime, eTime);
+    if (hasBookingOverlap) {
+      throw new Error('Cannot block hours: you have confirmed ceremony bookings during this time range.');
+    }
+
+    // 2. Check existing exception overlap
+    const startAt = parseISTDateTime(date, sTime);
+    const endAt = parseISTDateTime(date, eTime);
+
+    const hasExceptionOverlap = await this.checkExceptionOverlap(profile.id, startAt, endAt);
+    if (hasExceptionOverlap) {
+      throw new Error('An availability block already exists that overlaps with this time range.');
+    }
+
     const [record] = await db
       .insert(priestAvailabilityExceptions)
       .values({
         priestId: profile.id,
         exceptionType: 'BLOCK',
-        startAt: new Date(`${date}T${startTime}:00Z`),
-        endAt: new Date(`${date}T${endTime}:00Z`),
+        startAt,
+        endAt,
         reason: reason || 'Blocked Hours',
       })
       .returning();
 
-    return record;
+    return {
+      id: record.id,
+      priestId: record.priestId,
+      date,
+      type: 'PARTIAL_BLACKOUT',
+      startTime: sTime,
+      endTime: eTime,
+      exceptionType: record.exceptionType,
+      startAt: record.startAt ? new Date(record.startAt).toISOString() : '',
+      endAt: record.endAt ? new Date(record.endAt).toISOString() : '',
+      reason: record.reason || '',
+      createdAt: record.createdAt ? new Date(record.createdAt).toISOString() : new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Check if requested timestamp range overlaps with any existing availability exception.
+   */
+  async checkExceptionOverlap(
+    priestId: string,
+    startAt: Date,
+    endAt: Date
+  ): Promise<boolean> {
+    const exceptions = await db
+      .select({
+        startAt: priestAvailabilityExceptions.startAt,
+        endAt: priestAvailabilityExceptions.endAt,
+      })
+      .from(priestAvailabilityExceptions)
+      .where(eq(priestAvailabilityExceptions.priestId, priestId));
+
+    return exceptions.some((ex) => {
+      const exStart = new Date(ex.startAt);
+      const exEnd = new Date(ex.endAt);
+      return startAt < exEnd && endAt > exStart;
+    });
   }
 
   /**
    * Check if a requested time range overlaps with any confirmed booking.
    * Overlap condition: requestedStart < bookingEnd AND requestedEnd > bookingStart.
-   *
-   * @param priestId - Target priest ID
-   * @param date - Date formatted as YYYY-MM-DD
-   * @param startTime - Start time in 24hr format HH:mm
-   * @param endTime - End time in 24hr format HH:mm
-   * @returns true if an overlap is detected, false otherwise
    */
   async checkBookingOverlap(
     priestId: string,
@@ -145,17 +263,6 @@ export class AvailabilityService {
 
   /**
    * Calculate 3-month availability calendar (90 rolling days).
-   * Easiest possible calculation: loops through days from startDate to endDate,
-   * inspects exceptions and confirmed bookings, and tags each day with status:
-   * - FULL_DAY_OFF (Red): Entire 07:00–21:00 is blocked
-   * - PARTIAL_BLOCK (Orange): Specific hours are blocked
-   * - AVAILABLE (Green): Open for ceremonies
-   * - hasBooking (Blue): Devotee ceremony exists
-   *
-   * @param priestId - Target priest ID
-   * @param startDate - Optional window start (default: today)
-   * @param endDate - Optional window end (default: today + 90 days)
-   * @returns List of daily availability summaries for the 3-month calendar
    */
   async calculateMonthAvailability(
     priestId: string,
@@ -197,19 +304,23 @@ export class AvailabilityService {
     endLimit.setUTCHours(23, 59, 59, 999);
 
     while (current <= endLimit) {
-      const dateStr = current.toISOString().split('T')[0];
+      const dateStr = toISTDateString(current);
 
       const dayExceptions = exceptions.filter((e) => {
-        const eDate = new Date(e.startAt).toISOString().split('T')[0];
+        const eDate = toISTDateString(new Date(e.startAt));
         return eDate === dateStr;
       });
 
       const isFullDayOff = dayExceptions.some((e) => {
         const s = new Date(e.startAt);
         const en = new Date(e.endAt);
-        const sTime = String(s.getUTCHours()).padStart(2, '0') + ':' + String(s.getUTCMinutes()).padStart(2, '0');
-        const eTime = String(en.getUTCHours()).padStart(2, '0') + ':' + String(en.getUTCMinutes()).padStart(2, '0');
-        return (sTime === '07:00' && eTime === '21:00') || (sTime === '00:00' && eTime === '23:59') || e.reason?.includes('Full Day');
+        const sTime = toISTTimeString(s);
+        const eTime = toISTTimeString(en);
+        return (
+          e.reason?.includes('Full Day') ||
+          (sTime === '07:00' && eTime === '21:00') ||
+          (sTime === '00:00' && eTime === '23:59')
+        );
       });
 
       const status: 'AVAILABLE' | 'FULL_DAY_OFF' | 'PARTIAL_BLOCK' = isFullDayOff
@@ -224,8 +335,8 @@ export class AvailabilityService {
         const s = new Date(e.startAt);
         const en = new Date(e.endAt);
         return {
-          startTime: String(s.getUTCHours()).padStart(2, '0') + ':' + String(s.getUTCMinutes()).padStart(2, '0'),
-          endTime: String(en.getUTCHours()).padStart(2, '0') + ':' + String(en.getUTCMinutes()).padStart(2, '0'),
+          startTime: toISTTimeString(s),
+          endTime: toISTTimeString(en),
           reason: e.reason,
         };
       });
@@ -237,7 +348,7 @@ export class AvailabilityService {
         blockedSlots,
       });
 
-      current.setUTCDate(current.getUTCDate() + 1);
+      current.setDate(current.getDate() + 1);
     }
 
     return result;
