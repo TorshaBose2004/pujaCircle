@@ -1,4 +1,4 @@
-import { and, eq, ilike, ne, or } from 'drizzle-orm';
+import { and, eq, ilike, or } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { users, priestProfiles, priestServices, priestAvailabilityExceptions, pujaCatalog } from '../models/index.js';
 import {

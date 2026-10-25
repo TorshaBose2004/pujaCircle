@@ -272,78 +272,7 @@ export const priestApi = {
     }
   },
 
-  // Admin Management APIs
-  getAllPriests: async (params?: PriestFilterParams): Promise<Priest[]> => {
-    try {
-      const res = await apiClient.get('/admin/priests', { params });
-      return (res as any).data || res;
-    } catch (error) {
-      logAppError('priestApi.getAllPriests', error, { params });
-      return [];
-    }
-  },
 
-  getPendingPriests: async (): Promise<Priest[]> => {
-    try {
-      const res = await apiClient.get('/admin/priests/pending');
-      return (res as any).data || res;
-    } catch (error) {
-      logAppError('priestApi.getPendingPriests', error);
-      return [];
-    }
-  },
-
-  approvePriest: async (priestId: string) => {
-    try {
-      const res = await apiClient.post(`/admin/priests/${priestId}/approve`);
-      return res as any;
-    } catch (error) {
-      logAppError('priestApi.approvePriest', error, { priestId });
-      return {
-        success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to approve priest.'),
-      };
-    }
-  },
-
-  rejectPriest: async (priestId: string, reason: string = 'Application incomplete') => {
-    try {
-      const res = await apiClient.post(`/admin/priests/${priestId}/reject`, { reason });
-      return res as any;
-    } catch (error) {
-      logAppError('priestApi.rejectPriest', error, { priestId });
-      return {
-        success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to reject priest.'),
-      };
-    }
-  },
-
-  banPriest: async (priestId: string, reason: string = 'Policy violation') => {
-    try {
-      const res = await apiClient.post(`/admin/priests/${priestId}/ban`, { reason });
-      return res as any;
-    } catch (error) {
-      logAppError('priestApi.banPriest', error, { priestId });
-      return {
-        success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to ban priest.'),
-      };
-    }
-  },
-
-  reactivatePriest: async (priestId: string) => {
-    try {
-      const res = await apiClient.post(`/admin/priests/${priestId}/unban`);
-      return res as any;
-    } catch (error) {
-      logAppError('priestApi.reactivatePriest', error, { priestId });
-      return {
-        success: false,
-        message: getUserFriendlyErrorMessage(error, 'Failed to reactivate priest.'),
-      };
-    }
-  },
 
   lookupPincode: async (pincode: string): Promise<PincodeLookupResponse> => {
     try {

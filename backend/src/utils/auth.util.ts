@@ -9,13 +9,3 @@ export const isAdmin = (target: Request | AuthUserContext | undefined | null): b
   const user = 'user' in target ? target.user : (target as AuthUserContext);
   return Boolean(user && user.role === 'ADMIN' && user.accountStatus !== 'BANNED');
 };
-
-// Assert admin privileges or throw an unauthorized error
-export const assertAdmin = (target: Request | AuthUserContext | undefined | null): void => {
-  if (!isAdmin(target)) {
-    throw {
-      statusCode: 403,
-      message: 'Access denied. Administrative privileges required.',
-    };
-  }
-};

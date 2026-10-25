@@ -1,6 +1,5 @@
 import { Role, AccountStatus } from './auth.types';
 
-export type UserStatus = AccountStatus; // Backward compatibility alias
 
 export interface UserProfile {
   id: string;
