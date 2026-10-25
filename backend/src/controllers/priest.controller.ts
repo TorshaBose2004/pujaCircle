@@ -142,20 +142,20 @@ export class PriestController {
   /**
    * POST /api/v1/priests/:id/services
    */
-  async createPriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
+  async createPriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const priestId = req.user?.id || req.params.id;
       const service = await priestService.createPriestService(priestId, req.body);
       sendSuccess(res, 'Service offering created.', service, 201);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to create service offering.', 400);
+    } catch (error) {
+      next(error);
     }
   }
 
   /**
    * PUT /api/v1/priests/:id/services/:serviceId
    */
-  async updatePriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
+  async updatePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const priestId = req.user?.id || req.params.id;
       const updated = await priestService.updatePriestService(
@@ -164,34 +164,34 @@ export class PriestController {
         req.body
       );
       sendSuccess(res, 'Service offering updated.', updated);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to update service offering.', 400);
+    } catch (error) {
+      next(error);
     }
   }
 
   /**
    * DELETE /api/v1/priests/:id/services/:serviceId
    */
-  async deletePriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
+  async deletePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const priestId = req.user?.id || req.params.id;
       await priestService.deletePriestService(priestId, req.params.serviceId);
       sendSuccess(res, 'Service offering removed.');
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to delete service offering.', 400);
+    } catch (error) {
+      next(error);
     }
   }
 
   /**
    * PATCH /api/v1/priests/:id/services/:serviceId/toggle
    */
-  async togglePriestService(req: Request, res: Response, _next: NextFunction): Promise<void> {
+  async togglePriestService(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const priestId = req.user?.id || req.params.id;
       const result = await priestService.togglePriestService(priestId, req.params.serviceId);
       sendSuccess(res, 'Service status toggled.', result);
-    } catch (error: any) {
-      sendError(res, error.message || 'Failed to toggle service status.', 400);
+    } catch (error) {
+      next(error);
     }
   }
 

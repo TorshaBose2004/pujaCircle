@@ -279,6 +279,7 @@ export const AdminCatalogPage: React.FC = () => {
       return;
     }
 
+    let isSuccess = false;
     if (editingEntry) {
       const res = await catalogApi.updateCatalogEntry(editingEntry.id, {
         name: name.trim(),
@@ -294,6 +295,7 @@ export const AdminCatalogPage: React.FC = () => {
       });
       if (res.success) {
         toast.success(res.message);
+        isSuccess = true;
       } else {
         toast.error(res.message);
       }
@@ -312,13 +314,16 @@ export const AdminCatalogPage: React.FC = () => {
       });
       if (res.success) {
         toast.success(res.message);
+        isSuccess = true;
       } else {
         toast.error(res.message);
       }
     }
 
-    fetchCatalog();
-    setIsModalOpen(false);
+    if (isSuccess) {
+      fetchCatalog();
+      setIsModalOpen(false);
+    }
   };
 
   const handleDeleteEntry = async (id: string) => {
