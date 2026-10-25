@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, ilike } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { pujaCatalog, NewPujaCatalog } from '../models/catalog.model.js';
 import { cloudinaryService } from './cloudinary.service.js';
@@ -9,12 +9,21 @@ import { cloudinaryService } from './cloudinary.service.js';
  */
 export class CatalogService {
   /**
-   * Get all active sacred ceremonies for catalog
+   * Get all active sacred ceremonies for catalog with optional category and search query filters
    */
-  async getCatalog(_category?: string, _query?: string) {
+  async getCatalog(category?: string, query?: string) {
+    const conditions = [];
+    if (category) {
+      conditions.push(eq(pujaCatalog.category, category));
+    }
+    if (query) {
+      conditions.push(ilike(pujaCatalog.name, `%${query}%`));
+    }
+
     const entries = await db
       .select()
-      .from(pujaCatalog);
+      .from(pujaCatalog)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
 
     return entries.map((e) => ({
       ...e,
@@ -54,6 +63,7 @@ export class CatalogService {
         samagriList: data.samagriList || [],
         steps: data.steps || [],
         timingNote: data.timingNote || '',
+        durationMinutes: data.durationMinutes,
         coverImage: data.coverImage,
         isActive: data.isActive ?? true,
       })

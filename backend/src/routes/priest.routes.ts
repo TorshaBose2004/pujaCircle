@@ -25,11 +25,7 @@ const router = Router();
  * Priest directory, profile customization, and service pricing (Teammate Skeleton)
  */
 
-// Public priest listings for devotees
-router.get('/', priestController.searchPriests);
-router.get('/:id', validate(uuidParamSchema, 'params'), priestController.getPriestById);
-
-// Protected priest self-management
+// Protected priest self-management — MUST be before /:id to avoid Express swallowing 'me' as an id
 router.get('/me/profile', requireAuth, requireRole('PRIEST'), priestController.getMyProfile);
 router.put('/me/profile', requireAuth, requireRole('PRIEST'), validate(updatePriestProfileSchema), priestController.updateMyProfile);
 router.get('/me/services', requireAuth, requireRole('PRIEST'), priestController.getMyServices);
@@ -42,22 +38,28 @@ router.delete('/me/exceptions/:exceptionId', requireAuth, requireRole('PRIEST'),
 router.get('/me/working-hours', requireAuth, requireRole('PRIEST'), priestController.getMyWorkingHours);
 router.put('/me/working-hours', requireAuth, requireRole('PRIEST'), validate(priestWorkingHoursSchema), priestController.updateMyWorkingHours);
 
-// Priest specific endpoints by ID
-router.put('/:id', requireAuth, validate(uuidParamSchema, 'params'), validate(updatePriestProfileSchema), priestController.updatePriestProfile);
+// Priest-specific endpoints by ID (sub-resource routes before bare /:id)
 router.get('/:id/services', validate(uuidParamSchema, 'params'), priestController.getPriestServices);
 router.post('/:id/services', requireAuth, validate(uuidParamSchema, 'params'), validate(createPriestServiceSchema), priestController.createPriestService);
 router.put('/:id/services/:serviceId', requireAuth, validate(priestServiceParamSchema, 'params'), validate(updatePriestServiceSchema), priestController.updatePriestService);
 router.delete('/:id/services/:serviceId', requireAuth, validate(priestServiceParamSchema, 'params'), priestController.deletePriestService);
 router.patch('/:id/services/:serviceId/toggle', requireAuth, validate(priestServiceParamSchema, 'params'), priestController.togglePriestService);
 
-// Default Working Hours
+// Working Hours by priest ID
 router.get('/:id/working-hours', validate(uuidParamSchema, 'params'), priestController.getPriestWorkingHours);
 router.put('/:id/working-hours', requireAuth, validate(uuidParamSchema, 'params'), validate(priestWorkingHoursSchema), priestController.updatePriestWorkingHours);
 
-// Priest Availability Exceptions (Full-Day Leaves & Partial Hour Blackouts)
+// Priest Availability Exceptions by priest ID
 router.get('/:id/exceptions', validate(uuidParamSchema, 'params'), priestController.getPriestExceptions);
 router.put('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), validate(updatePriestAvailabilityExceptionSchema), priestController.updatePriestException);
 router.delete('/:id/exceptions/:exceptionId', requireAuth, validate(priestExceptionParamSchema, 'params'), priestController.deletePriestException);
+
+// Update priest profile by ID
+router.put('/:id', requireAuth, validate(uuidParamSchema, 'params'), validate(updatePriestProfileSchema), priestController.updatePriestProfile);
+
+// Public priest listings — LAST so they don't shadow /me/* or sub-resource routes
+router.get('/', priestController.searchPriests);
+router.get('/:id', validate(uuidParamSchema, 'params'), priestController.getPriestById);
 
 
 

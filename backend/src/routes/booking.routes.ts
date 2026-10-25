@@ -11,9 +11,10 @@ const router = Router();
  * [ROUTE] /api/v1/bookings
  * Reservation and ceremony lifecycle routes.
  */
-router.get('/', bookingController.getBookings);
+// Bookings are private data — require authentication on all reads
+router.get('/', requireAuth, bookingController.getBookings);
 router.post('/', requireAuth, validate(createBookingSchema), bookingController.createBooking);
-router.get('/:id', validate(uuidParamSchema, 'params'), bookingController.getBookingById);
+router.get('/:id', requireAuth, validate(uuidParamSchema, 'params'), bookingController.getBookingById);
 router.post('/:id/accept', requireAuth, validate(uuidParamSchema, 'params'), bookingController.acceptBooking);
 router.post('/:id/reject', requireAuth, validate(uuidParamSchema, 'params'), validate(bookingActionReasonSchema), bookingController.rejectBooking);
 router.post('/:id/cancel', requireAuth, validate(uuidParamSchema, 'params'), validate(bookingActionReasonSchema), bookingController.cancelBooking);

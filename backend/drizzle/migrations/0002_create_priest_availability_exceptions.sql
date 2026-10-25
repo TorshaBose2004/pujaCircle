@@ -31,3 +31,7 @@ ON priest_availability_exceptions (priest_id);
 
 CREATE INDEX IF NOT EXISTS idx_priest_availability_exceptions_priest_range 
 ON priest_availability_exceptions (priest_id, start_at, end_at);
+
+-- 5. Add duration_minutes to puja_catalog
+ALTER TABLE puja_catalog 
+ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 120;

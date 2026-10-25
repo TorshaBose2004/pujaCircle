@@ -138,7 +138,7 @@ export const priestApi = {
   },
 
   // Date-Based Muhurat Availability Computations
-  getAvailableSlotsForDate: async (priestId: string, date: string): Promise<CalculatedSlot[]> => {
+  getAvailableSlotsForDate: async (priestId: string, date: string, durationMinutes: number = 120): Promise<CalculatedSlot[]> => {
     try {
       const [exceptions, whData] = await Promise.all([
         getPriestExceptions(priestId),
@@ -149,7 +149,7 @@ export const priestApi = {
         date,
         exceptions,
         [],
-        120,
+        durationMinutes || 120,
         whData?.defaultStartTime || '07:00',
         whData?.defaultEndTime || '21:00'
       );

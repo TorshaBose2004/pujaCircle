@@ -44,6 +44,7 @@ export const AdminCatalogPage: React.FC = () => {
   const [samagriText, setSamagriText] = useState("");
   const [stepsText, setStepsText] = useState("");
   const [timingNote, setTimingNote] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState<string>("120");
 
   const filteredCatalog = catalog.filter((entry) => {
     const matchesSearch =
@@ -73,6 +74,7 @@ export const AdminCatalogPage: React.FC = () => {
     setSamagriText("");
     setStepsText("");
     setTimingNote("");
+    setDurationMinutes("120");
     setIsModalOpen(true);
   };
 
@@ -90,6 +92,7 @@ export const AdminCatalogPage: React.FC = () => {
     setSamagriText(entry.samagriList.join("\n"));
     setStepsText(entry.steps.join("\n"));
     setTimingNote(entry.timingNote);
+    setDurationMinutes(String(entry.durationMinutes || 120));
     setIsModalOpen(true);
   };
 
@@ -98,7 +101,9 @@ export const AdminCatalogPage: React.FC = () => {
     if (coverImage && coverImage.includes("cloudinary.com")) {
       const originalImage = editingEntry ? editingEntry.coverImage : "";
       if (coverImage !== originalImage) {
-        apiClient.delete("/media", { data: { url: coverImage } }).catch(() => {});
+        apiClient
+          .delete("/media", { data: { url: coverImage } })
+          .catch(() => {});
       }
     }
     setIsModalOpen(false);
@@ -113,7 +118,7 @@ export const AdminCatalogPage: React.FC = () => {
     const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
     if (file.size > MAX_SIZE_BYTES) {
       setUploadError(
-        `File size exceeds limit. Image must be strictly under 2MB (Selected size: ${(file.size / (1024 * 1024)).toFixed(2)} MB).`
+        `File size exceeds limit. Image must be strictly under 2MB (Selected size: ${(file.size / (1024 * 1024)).toFixed(2)} MB).`,
       );
       e.target.value = "";
       return;
@@ -147,10 +152,19 @@ export const AdminCatalogPage: React.FC = () => {
         if (uploadedUrl) {
           // Immediately delete the previous picture from Cloudinary so only the current updated picture exists
           const prevUrl = coverImage;
-          if (prevUrl && prevUrl.includes("cloudinary.com") && prevUrl !== uploadedUrl) {
-            apiClient.delete("/media", { data: { url: prevUrl } }).catch((err) => {
-              console.warn("Failed to delete previous media from Cloudinary:", err);
-            });
+          if (
+            prevUrl &&
+            prevUrl.includes("cloudinary.com") &&
+            prevUrl !== uploadedUrl
+          ) {
+            apiClient
+              .delete("/media", { data: { url: prevUrl } })
+              .catch((err) => {
+                console.warn(
+                  "Failed to delete previous media from Cloudinary:",
+                  err,
+                );
+              });
           }
 
           setCoverImage(uploadedUrl);
@@ -208,13 +222,17 @@ export const AdminCatalogPage: React.FC = () => {
     }
 
     if (!coverImage.trim()) {
-      setUploadError("A ceremony cover image is required (strictly under 2MB).");
+      setUploadError(
+        "A ceremony cover image is required (strictly under 2MB).",
+      );
       toast.error("Please upload a ceremony picture (strictly under 2MB).");
       return;
     }
 
     if (!description.trim() || description.trim().length < 10) {
-      toast.error("Description is required and must be at least 10 characters.");
+      toast.error(
+        "Description is required and must be at least 10 characters.",
+      );
       return;
     }
 
@@ -253,6 +271,14 @@ export const AdminCatalogPage: React.FC = () => {
       return;
     }
 
+    const parsedDuration = Number(durationMinutes);
+    if (!parsedDuration || parsedDuration <= 0) {
+      toast.error(
+        "Ceremony duration in minutes is strictly required and must be greater than zero.",
+      );
+      return;
+    }
+
     if (editingEntry) {
       const res = await catalogApi.updateCatalogEntry(editingEntry.id, {
         name: name.trim(),
@@ -264,6 +290,7 @@ export const AdminCatalogPage: React.FC = () => {
         samagriList: samagri,
         steps,
         timingNote: timingNote.trim(),
+        durationMinutes: parsedDuration,
       });
       if (res.success) {
         toast.success(res.message);
@@ -281,6 +308,7 @@ export const AdminCatalogPage: React.FC = () => {
         samagriList: samagri,
         steps,
         timingNote: timingNote.trim(),
+        durationMinutes: parsedDuration,
       });
       if (res.success) {
         toast.success(res.message);
@@ -317,7 +345,8 @@ export const AdminCatalogPage: React.FC = () => {
     samagriText.trim() &&
     stepsText.trim() &&
     timingNote.trim() &&
-    !isUploading
+    Number(durationMinutes) > 0 &&
+    !isUploading,
   );
 
   return (
@@ -431,8 +460,14 @@ export const AdminCatalogPage: React.FC = () => {
                           <div className="font-semibold text-stone-900">
                             {entry.name}
                           </div>
-                          <div className="text-[11px] text-[#780016] font-medium">
-                            Deity: {entry.deity}
+                          <div className="text-[11px] text-[#780016] font-medium flex items-center gap-1.5 flex-wrap">
+                            <span>Deity: {entry.deity}</span>
+                            <span>•</span>
+                            <span className="font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded text-[10px]">
+                              {entry.durationMinutes || 120} mins (
+                              {((entry.durationMinutes || 120) / 60).toFixed(1)}{" "}
+                              hrs)
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -603,7 +638,9 @@ export const AdminCatalogPage: React.FC = () => {
                       {isUploading ? (
                         <div className="flex flex-col items-center justify-center p-3 text-center gap-1.5">
                           <Loader2 className="w-6 h-6 text-[#780016] animate-spin" />
-                          <span className="text-[11px] font-semibold text-stone-700">Uploading picture...</span>
+                          <span className="text-[11px] font-semibold text-stone-700">
+                            Uploading picture...
+                          </span>
                         </div>
                       ) : coverImage ? (
                         <img
@@ -614,8 +651,12 @@ export const AdminCatalogPage: React.FC = () => {
                       ) : (
                         <div className="flex flex-col items-center justify-center p-3 text-center">
                           <UploadCloud className="w-6 h-6 text-amber-600 mb-1" />
-                          <span className="text-[11px] font-semibold text-stone-700">No Picture Uploaded</span>
-                          <span className="text-[9px] text-stone-500">Strictly required &lt; 2MB</span>
+                          <span className="text-[11px] font-semibold text-stone-700">
+                            No Picture Uploaded
+                          </span>
+                          <span className="text-[9px] text-stone-500">
+                            Strictly required &lt; 2MB
+                          </span>
                         </div>
                       )}
                     </div>
@@ -643,8 +684,8 @@ export const AdminCatalogPage: React.FC = () => {
                               {uploadFileName
                                 ? `Uploaded: ${uploadFileName}`
                                 : coverImage
-                                ? "Click to replace picture *"
-                                : "Click to select and upload picture *"}
+                                  ? "Click to replace picture *"
+                                  : "Click to select and upload picture *"}
                             </span>
                             <span className="text-[11px] text-stone-500 mt-0.5">
                               PNG, JPG, WebP, AVIF (Strictly max 2.0 MB)
@@ -722,18 +763,44 @@ export const AdminCatalogPage: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block font-semibold text-stone-800 mb-1">
-                    Auspicious Timing Note *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={timingNote}
-                    onChange={(e) => setTimingNote(e.target.value)}
-                    placeholder="e.g. Shukla Paksha morning hours recommended."
-                    className="w-full rounded-md border border-amber-300 bg-white p-2 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-[#780016]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-stone-800 mb-1">
+                      Ceremony Duration (in minutes) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={15}
+                      step={15}
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                      placeholder="e.g. 120 (for 2 hours)"
+                      className="w-full rounded-md border border-amber-300 bg-white p-2 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-[#780016]"
+                    />
+                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                      {durationMinutes && Number(durationMinutes) > 0
+                        ? `Equivalent to ${(Number(durationMinutes) / 60).toFixed(1)} hours`
+                        : "Enter ceremony duration in minutes"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-stone-800 mb-1">
+                      Auspicious Timing Note *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={timingNote}
+                      onChange={(e) => setTimingNote(e.target.value)}
+                      placeholder="e.g. Shukla Paksha morning hours."
+                      className="w-full rounded-md border border-amber-300 bg-white p-2 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-[#780016]"
+                    />
+                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                      Auspicious tithi / muhurat preference
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-amber-200">
@@ -747,15 +814,17 @@ export const AdminCatalogPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={!isFormValid || isUploading}
-                    className="bg-[#780016] hover:bg-[#600012] text-white border border-amber-400 rounded-md px-5 py-2 text-xs font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                    className="bg-[#780016] hover:bg-[#600012] text-white border border-amber-400 rounded-md px-5 py-2 text-xs font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center gap-2"
                   >
-                    {isUploading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {isUploading && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
                     <span>
                       {isUploading
                         ? "Uploading..."
                         : editingEntry
-                        ? "Update Entry"
-                        : "Create Entry"}
+                          ? "Update Entry"
+                          : "Create Entry"}
                     </span>
                   </button>
                 </div>

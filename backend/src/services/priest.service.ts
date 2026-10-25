@@ -11,13 +11,25 @@ import {
 } from '../schemas/priest.schema.js';
 import { cloudinaryService } from './cloudinary.service.js';
 import { toISTDateString, toISTTimeString } from './availability.service.js';
-
+import { AppError } from '../utils/AppError.js';
 
 /**
  * [SERVICE] Priest Service
  * Handles verified purohit directory, profile configuration, service pricing, and availability exceptions.
  */
 export class PriestService {
+  /**
+   * Resolves the canonical priest_profiles.id from either a profile ID or user ID.
+   */
+  private async resolvePriestProfileId(idOrUserId: string): Promise<string | null> {
+    const [profile] = await db
+      .select({ id: priestProfiles.id })
+      .from(priestProfiles)
+      .where(or(eq(priestProfiles.id, idOrUserId), eq(priestProfiles.userId, idOrUserId)))
+      .limit(1);
+    return profile?.id ?? null;
+  }
+
   /**
    * Search and filter verified priests for devotee catalog listings
    */
@@ -48,7 +60,12 @@ export class PriestService {
         createdAt: priestProfiles.createdAt,
       })
       .from(priestProfiles)
-      .innerJoin(users, eq(priestProfiles.userId, users.id));
+      .innerJoin(users, eq(priestProfiles.userId, users.id))
+      // Only show verified, active priests on the public devotee listing
+      .where(and(
+        eq(priestProfiles.approvalStatus, 'APPROVED'),
+        eq(users.accountStatus, 'ACTIVE')
+      ));
 
     return records.map((p) => ({
       ...p,
@@ -98,8 +115,22 @@ export class PriestService {
     if (!record) return null;
 
     const services = await db
-      .select()
+      .select({
+        id: priestServices.id,
+        priestId: priestServices.priestId,
+        serviceName: priestServices.serviceName,
+        pujaCatalogId: priestServices.pujaCatalogId,
+        category: priestServices.category,
+        samagriList: priestServices.samagriList,
+        price: priestServices.price,
+        isCustom: priestServices.isCustom,
+        isActive: priestServices.isActive,
+        durationMinutes: pujaCatalog.durationMinutes,
+        createdAt: priestServices.createdAt,
+        updatedAt: priestServices.updatedAt,
+      })
       .from(priestServices)
+      .leftJoin(pujaCatalog, eq(priestServices.pujaCatalogId, pujaCatalog.id))
       .where(eq(priestServices.priestId, record.id));
 
     return {
@@ -159,14 +190,10 @@ export class PriestService {
    * Prevents adding duplicate services for the same priest.
    */
   async createPriestService(priestId: string, data: CreatePriestServiceInput): Promise<any> {
-    const [profile] = await db
-      .select({ id: priestProfiles.id })
-      .from(priestProfiles)
-      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
-      .limit(1);
+    const profileId = await this.resolvePriestProfileId(priestId);
 
-    if (!profile) {
-      throw new Error(`Priest profile not found for ID: ${priestId}`);
+    if (!profileId) {
+      throw new AppError(404, `Priest profile not found for ID: ${priestId}`);
     }
 
     // Must exist in puja_catalog table
@@ -189,7 +216,7 @@ export class PriestService {
     }
 
     if (!catalogEntry) {
-      throw new Error('Please select a valid ceremony from the sacred puja catalog.');
+      throw new AppError(400, 'Please select a valid ceremony from the sacred puja catalog.');
     }
 
     // Check if priest already added this service (by catalog ID or canonical name)
@@ -198,7 +225,7 @@ export class PriestService {
       .from(priestServices)
       .where(
         and(
-          eq(priestServices.priestId, profile.id),
+          eq(priestServices.priestId, profileId),
           or(
             eq(priestServices.pujaCatalogId, catalogEntry.id),
             ilike(priestServices.serviceName, catalogEntry.name)
@@ -208,13 +235,13 @@ export class PriestService {
       .limit(1);
 
     if (existing) {
-      throw new Error(`Service "${catalogEntry.name}" has already been added.`);
+      throw new AppError(409, `Service "${catalogEntry.name}" has already been added.`);
     }
 
     const [record] = await db
       .insert(priestServices)
       .values({
-        priestId: profile.id,
+        priestId: profileId,
         serviceName: catalogEntry.name,
         pujaCatalogId: catalogEntry.id,
         category: catalogEntry.category || 'General',
@@ -236,25 +263,21 @@ export class PriestService {
     serviceId: string,
     data: UpdatePriestServiceInput
   ): Promise<any> {
-    const [profile] = await db
-      .select({ id: priestProfiles.id })
-      .from(priestProfiles)
-      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
-      .limit(1);
+    const profileId = await this.resolvePriestProfileId(priestId);
 
-    if (!profile) {
-      throw new Error(`Priest profile not found for ID: ${priestId}`);
+    if (!profileId) {
+      throw new AppError(404, `Priest profile not found for ID: ${priestId}`);
     }
 
     // Check if the service exists and belongs to this priest
     const [currentService] = await db
       .select()
       .from(priestServices)
-      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, profile.id)))
+      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, profileId)))
       .limit(1);
 
     if (!currentService) {
-      throw new Error(`Service not found for ID: ${serviceId}`);
+      throw new AppError(404, `Service not found for ID: ${serviceId}`);
     }
 
     // Only check name collision if actually changing the service name to a DIFFERENT name
@@ -266,14 +289,14 @@ export class PriestService {
           .from(priestServices)
           .where(
             and(
-              eq(priestServices.priestId, profile.id),
+              eq(priestServices.priestId, profileId),
               ilike(priestServices.serviceName, normalizedName)
             )
           )
           .limit(1);
 
         if (duplicate) {
-          throw new Error(`Another service named "${data.serviceName}" already exists.`);
+          throw new AppError(409, `Another service named "${data.serviceName}" already exists.`);
         }
       }
     }
@@ -288,7 +311,7 @@ export class PriestService {
     const [updated] = await db
       .update(priestServices)
       .set(updateData)
-      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, profile.id)))
+      .where(and(eq(priestServices.id, serviceId), eq(priestServices.priestId, profileId)))
       .returning();
 
     return updated;
@@ -298,13 +321,8 @@ export class PriestService {
    * Remove a service offering from a priest's roster
    */
   async deletePriestService(priestId: string, serviceId: string): Promise<void> {
-    const [profile] = await db
-      .select({ id: priestProfiles.id })
-      .from(priestProfiles)
-      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
-      .limit(1);
-
-    const targetPriestId = profile ? profile.id : priestId;
+    const profileId = await this.resolvePriestProfileId(priestId);
+    const targetPriestId = profileId || priestId;
 
     await db
       .delete(priestServices)
@@ -315,13 +333,8 @@ export class PriestService {
    * Toggle service active/inactive status for bookings
    */
   async togglePriestService(priestId: string, serviceId: string): Promise<any> {
-    const [profile] = await db
-      .select({ id: priestProfiles.id })
-      .from(priestProfiles)
-      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
-      .limit(1);
-
-    const targetPriestId = profile ? profile.id : priestId;
+    const profileId = await this.resolvePriestProfileId(priestId);
+    const targetPriestId = profileId || priestId;
 
     const [existing] = await db
       .select({ id: priestServices.id, isActive: priestServices.isActive })
@@ -330,7 +343,7 @@ export class PriestService {
       .limit(1);
 
     if (!existing) {
-      throw new Error(`Service not found for ID: ${serviceId}`);
+      throw new AppError(404, `Service not found for ID: ${serviceId}`);
     }
 
     const [updated] = await db
@@ -350,13 +363,8 @@ export class PriestService {
     priestId: string,
     _query?: { startDate?: string; endDate?: string; date?: string }
   ): Promise<any[]> {
-    const [profile] = await db
-      .select({ id: priestProfiles.id })
-      .from(priestProfiles)
-      .where(or(eq(priestProfiles.id, priestId), eq(priestProfiles.userId, priestId)))
-      .limit(1);
-
-    const targetPriestId = profile ? profile.id : priestId;
+    const profileId = await this.resolvePriestProfileId(priestId);
+    const targetPriestId = profileId || priestId;
 
     const rows = await db
       .select()

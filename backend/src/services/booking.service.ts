@@ -30,7 +30,9 @@ export class BookingService {
    * Submit a new ceremony reservation request in PENDING state
    */
   async createBooking(_userId: string, _data: CreateBookingInput): Promise<any> {
-    // TODO: [Teammate - Booking] Generate bookingReference, lock slot status to BOOKED, and insert booking record
+    // TODO: [Teammate - Booking] 1. Generate unique bookingReference (e.g. PC-2026-XXXX)
+    // TODO: [Teammate - Booking] 2. If endTime is missing: calculate endTime = startTime + pujaCatalog.durationMinutes
+    // TODO: [Teammate - Booking] 3. Verify no overlap via availabilityService.checkBookingOverlap, then insert with status = 'PENDING'
     return null;
   }
 

@@ -11,7 +11,8 @@ const router = Router();
  * [ROUTE] /api/v1/addresses
  * Devotee addresses for ceremonial ceremonies.
  */
-router.get('/', addressController.getAddresses);
+// All address routes require auth — addresses are private user data
+router.get('/', requireAuth, addressController.getAddresses);
 router.post('/', requireAuth, validate(createAddressSchema), addressController.createAddress);
 router.put('/:id', requireAuth, validate(uuidParamSchema, 'params'), validate(updateAddressSchema), addressController.updateAddress);
 router.delete('/:id', requireAuth, validate(uuidParamSchema, 'params'), addressController.deleteAddress);

@@ -11,6 +11,7 @@ export interface PriestService {
   category?: string;
   samagriList?: string[];
   price: number; // Single authoritative service price in INR (₹)
+  durationMinutes?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;

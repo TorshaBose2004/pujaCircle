@@ -8,19 +8,16 @@ export const createBookingSchema = z.object({
   priestId: z.string().uuid('Invalid Priest ID format'),
   priestServiceId: z.string().uuid('Invalid Priest Service ID format').optional(),
   pujaCatalogId: z.string().uuid('Invalid Puja Catalog ID format').optional(),
-  ritualId: z.string().optional(),
   addressId: z.string().uuid('Invalid Address ID format'),
-  slotId: z.string().uuid('Invalid Slot ID format').optional(),
-  availabilitySlotId: z.string().optional(),
-  bookingDate: z.string().optional(),
-  scheduledDate: z.string().optional(),
+  // bookingDate is required — a puja booking must have a scheduled date
+  bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'bookingDate must be in YYYY-MM-DD format'),
+  scheduledDate: z.string().optional(), // derived server-side, optional from client
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   totalPrice: z.coerce.number().int().positive('Price must be greater than zero').optional(),
   servicePrice: z.coerce.number().int().positive('Price must be greater than zero').optional(),
   serviceName: z.string().optional(),
   specialInstructions: z.string().trim().max(1000).optional(),
-  userNotes: z.string().trim().max(1000).optional(),
   notes: z.string().trim().max(1000).optional(),
 });
 

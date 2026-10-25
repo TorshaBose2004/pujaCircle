@@ -12,13 +12,12 @@ export class AddressController {
    */
   async getAddresses(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activeUserId =
-        (typeof req.query.userId === 'string' ? req.query.userId : undefined) || req.user?.id;
-      if (!activeUserId) {
-        sendSuccess(res, 'Addresses retrieved.', []);
+      // Always use the authenticated user's own id — never trust a userId from the query string
+      if (!req.user) {
+        sendError(res, 'Authentication required to view addresses.', 401);
         return;
       }
-      const addresses = await addressService.getAddresses(activeUserId);
+      const addresses = await addressService.getAddresses(req.user.id);
       sendSuccess(res, 'Addresses retrieved.', addresses);
     } catch (error) {
       next(error);

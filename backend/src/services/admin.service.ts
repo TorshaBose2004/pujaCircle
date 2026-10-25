@@ -1,6 +1,7 @@
 import { count, eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { users, priestProfiles, bookings } from '../models/index.js';
+import { AppError } from '../utils/AppError.js';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -149,7 +150,7 @@ export class AdminService {
       .limit(1);
 
     if (!priest) {
-      throw { statusCode: 404, message: 'Priest record not found.' };
+      throw new AppError(404, 'Priest record not found.');
     }
 
     await db
@@ -172,7 +173,7 @@ export class AdminService {
       .limit(1);
 
     if (!priest) {
-      throw { statusCode: 404, message: 'Priest record not found.' };
+      throw new AppError(404, 'Priest record not found.');
     }
 
     await db

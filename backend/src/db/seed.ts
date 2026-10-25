@@ -8,7 +8,9 @@ async function seed(): Promise<void> {
   console.log('🕉️ Starting PujaCircle database seeding...');
 
   try {
-    // TODO: [Teammate - Database] Populate initial admin account, default sacred puja catalog entries, and test priests.
+    // TODO: [Teammate - Database] 1. Populate initial admin account
+    // TODO: [Teammate - Database] 2. Populate puja_catalog entries with durationMinutes (REQUIRED, e.g. Satyanarayan = 120, Griha Pravesh = 240)
+    // TODO: [Teammate - Database] 3. Populate test priest profiles and services
     console.log('🌱 Seed skeleton ready for teammate entity population.');
   } catch (error) {
     console.error('❌ Database seeding encountered an error:', error);

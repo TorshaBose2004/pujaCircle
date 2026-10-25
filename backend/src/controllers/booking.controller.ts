@@ -12,9 +12,11 @@ export class BookingController {
    */
   async getBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = typeof req.query.userId === 'string' ? req.query.userId : undefined;
+      const activeUserId = req.user?.role === 'ADMIN' && typeof req.query.userId === 'string'
+        ? req.query.userId
+        : req.user?.id;
       const priestId = typeof req.query.priestId === 'string' ? req.query.priestId : undefined;
-      const bookings = await bookingService.getBookings({ userId, priestId });
+      const bookings = await bookingService.getBookings({ userId: activeUserId, priestId });
       sendSuccess(res, 'Bookings retrieved.', bookings);
     } catch (error) {
       next(error);
@@ -38,11 +40,11 @@ export class BookingController {
    */
   async createBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activeUserId = req.user?.id || req.body?.userId;
-      if (!activeUserId) {
+      if (!req.user) {
         sendError(res, 'Authentication required to create a booking.', 401);
         return;
       }
+      const activeUserId = req.user.id;
       const booking = await bookingService.createBooking(activeUserId, req.body);
       sendSuccess(res, 'Booking request submitted successfully.', booking, 201);
     } catch (error) {
@@ -55,7 +57,11 @@ export class BookingController {
    */
   async acceptBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activePriestId = req.user?.id || req.body?.priestId || '';
+      if (!req.user) {
+        sendError(res, 'Authentication required to accept a booking.', 401);
+        return;
+      }
+      const activePriestId = req.user.id;
       const result = await bookingService.acceptBooking(req.params.id, activePriestId);
       sendSuccess(res, `Booking ${req.params.id} accepted successfully.`, result);
     } catch (error) {
@@ -68,7 +74,11 @@ export class BookingController {
    */
   async rejectBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activePriestId = req.user?.id || req.body?.priestId || '';
+      if (!req.user) {
+        sendError(res, 'Authentication required to reject a booking.', 401);
+        return;
+      }
+      const activePriestId = req.user.id;
       const result = await bookingService.rejectBooking(
         req.params.id,
         activePriestId,
@@ -85,7 +95,11 @@ export class BookingController {
    */
   async cancelBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activeUserId = req.user?.id || req.body?.userId || '';
+      if (!req.user) {
+        sendError(res, 'Authentication required to cancel a booking.', 401);
+        return;
+      }
+      const activeUserId = req.user.id;
       const result = await bookingService.cancelBooking(
         req.params.id,
         activeUserId,
@@ -102,7 +116,11 @@ export class BookingController {
    */
   async completeBooking(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activePriestId = req.user?.id || req.body?.priestId || '';
+      if (!req.user) {
+        sendError(res, 'Authentication required to complete a booking.', 401);
+        return;
+      }
+      const activePriestId = req.user.id;
       const result = await bookingService.completeBooking(
         req.params.id,
         activePriestId,
@@ -119,7 +137,11 @@ export class BookingController {
    */
   async submitRating(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activeUserId = req.user?.id || req.body?.userId || '';
+      if (!req.user) {
+        sendError(res, 'Authentication required to submit a rating.', 401);
+        return;
+      }
+      const activeUserId = req.user.id;
       const result = await bookingService.submitRating(activeUserId, req.body);
       sendSuccess(res, 'Devotee rating submitted with blessings.', result, 201);
     } catch (error) {

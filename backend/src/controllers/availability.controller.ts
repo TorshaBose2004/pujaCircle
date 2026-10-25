@@ -24,16 +24,7 @@ export class AvailabilityController {
 
       const result = await availabilityService.markFullDayOff(priestId, date, reason);
       sendSuccess(res, 'Full day off marked successfully', result, 201);
-    } catch (error: any) {
-      if (
-        error.message?.includes('not configured') ||
-        error.message?.includes('invalid') ||
-        error.message?.includes('already exists') ||
-        error.message?.includes('confirmed ceremony')
-      ) {
-        sendError(res, error.message, 400);
-        return;
-      }
+    } catch (error) {
       next(error);
     }
   }
@@ -61,17 +52,7 @@ export class AvailabilityController {
         reason
       );
       sendSuccess(res, 'Hours blocked successfully', result, 201);
-    } catch (error: any) {
-      if (
-        error.message?.includes('not configured') ||
-        error.message?.includes('invalid') ||
-        error.message?.includes('already exists') ||
-        error.message?.includes('confirmed ceremony') ||
-        error.message?.includes('later than start')
-      ) {
-        sendError(res, error.message, 400);
-        return;
-      }
+    } catch (error) {
       next(error);
     }
   }

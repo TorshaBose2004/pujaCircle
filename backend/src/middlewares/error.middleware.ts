@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { sendError } from '../views/response.view.js';
-import { env } from '../config/env.js';
+import { AppError } from '../utils/AppError.js';
 
 /**
  * [MIDDLEWARE] Global Error Handler
- * Sanitizes errors, preventing stack traces, internal file paths, or raw DB errors from leaking to clients.
- * Full technical errors are logged server-side for debugging.
+ * Sanitizes errors — prevents stack traces, DB internals, or file paths from leaking to clients.
+ * Full technical details are logged server-side for debugging.
  */
 export const errorHandler = (
   err: any,
@@ -14,14 +14,13 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  // Always log full error details server-side for observability and debugging
+  // Always log full error server-side for observability
   console.error('[SERVER ERROR DETAIL]:', err);
 
-  // Zod Validation Error handling
+  // Zod validation errors — return clean field-level messages to the client
   if (err instanceof ZodError) {
     const issue = err.issues[0];
     const message = issue ? `${issue.path.join('.') || 'input'}: ${issue.message}` : 'Validation failed';
-    // Return clean user-facing validation errors without internal parser metadata
     const cleanErrors = err.issues.map((i) => ({
       field: i.path.join('.'),
       message: i.message,
@@ -30,9 +29,15 @@ export const errorHandler = (
     return;
   }
 
-  // Known custom operational errors with safe status codes
+  // AppError — typed operational errors with a safe status code and message
+  if (err instanceof AppError && err.statusCode < 500) {
+    sendError(res, err.message, err.statusCode);
+    return;
+  }
+
+  // Legacy plain-object errors { statusCode, message } — supported during migration to AppError
   if (err.statusCode && typeof err.statusCode === 'number' && err.statusCode < 500) {
-    // Ensure raw SQL errors or internal paths are not passed in err.message
+    // Ensure raw SQL or internal paths are not passed through
     const isSafeMessage = typeof err.message === 'string' &&
       !err.message.includes('relation') &&
       !err.message.includes('column') &&
@@ -49,11 +54,7 @@ export const errorHandler = (
     return;
   }
 
-  // Fallback for unexpected or database 500 errors:
-  // Strictly return generic messages to clients - never expose raw DB internals or stack traces
-  sendError(
-    res,
-    'An unexpected server error occurred. Please try again.',
-    500
-  );
+  // Fallback for unexpected 500 errors — never expose raw DB internals or stack traces
+  sendError(res, 'An unexpected server error occurred. Please try again.', 500);
 };
+

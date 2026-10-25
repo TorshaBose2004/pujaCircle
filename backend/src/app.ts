@@ -12,6 +12,9 @@ import { sendError } from './views/response.view.js';
  */
 const app: Express = express();
 
+// Security headers — XSS protection, content-type sniffing, frameguard, etc.
+app.use(helmet());
+
 // Robust CORS configuration supporting frontend ports and preflight checks
 const allowedOrigins = [
   env.CLIENT_URL,

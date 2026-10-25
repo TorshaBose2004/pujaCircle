@@ -2,6 +2,7 @@ import { and, eq, or } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { priestAvailabilityExceptions, priestProfiles } from '../models/priest.model.js';
 import { bookings } from '../models/booking.model.js';
+import { AppError } from '../utils/AppError.js';
 
 export interface FormattedAvailabilityException {
   id: string;
@@ -76,11 +77,12 @@ export class AvailabilityService {
       .limit(1);
 
     if (!profile) {
-      throw new Error(`Priest profile not found for ID: ${priestId}`);
+      throw new AppError(404, `Priest profile not found for ID: ${priestId}`);
     }
 
     if (!profile.defaultStartTime || !profile.defaultEndTime) {
-      throw new Error(
+      throw new AppError(
+        400,
         'Default working hours are not configured for this priest profile. Please configure working hours first.'
       );
     }
@@ -89,13 +91,13 @@ export class AvailabilityService {
     const endTime = profile.defaultEndTime.slice(0, 5);
 
     if (startTime >= endTime) {
-      throw new Error('Configured working hours are invalid: start time must be earlier than end time.');
+      throw new AppError(400, 'Configured working hours are invalid: start time must be earlier than end time.');
     }
 
     // 1. Check confirmed booking overlap across working hours
     const hasBookingOverlap = await this.checkBookingOverlap(profile.id, date, startTime, endTime);
     if (hasBookingOverlap) {
-      throw new Error('Cannot mark day off: you have confirmed ceremony bookings during your working hours on this date.');
+      throw new AppError(400, 'Cannot mark day off: you have confirmed ceremony bookings during your working hours on this date.');
     }
 
     // 2. Check existing exception overlap
@@ -104,7 +106,7 @@ export class AvailabilityService {
 
     const hasExceptionOverlap = await this.checkExceptionOverlap(profile.id, startAt, endAt);
     if (hasExceptionOverlap) {
-      throw new Error('An availability block or day off already exists for this date.');
+      throw new AppError(409, 'An availability block or day off already exists for this date.');
     }
 
     const [record] = await db
@@ -147,7 +149,7 @@ export class AvailabilityService {
     const eTime = endTime.slice(0, 5);
 
     if (sTime >= eTime) {
-      throw new Error('End time must be later than start time.');
+      throw new AppError(400, 'End time must be later than start time.');
     }
 
     const [profile] = await db
@@ -157,13 +159,13 @@ export class AvailabilityService {
       .limit(1);
 
     if (!profile) {
-      throw new Error(`Priest profile not found for ID: ${priestId}`);
+      throw new AppError(404, `Priest profile not found for ID: ${priestId}`);
     }
 
     // 1. Check confirmed booking overlap
     const hasBookingOverlap = await this.checkBookingOverlap(profile.id, date, sTime, eTime);
     if (hasBookingOverlap) {
-      throw new Error('Cannot block hours: you have confirmed ceremony bookings during this time range.');
+      throw new AppError(400, 'Cannot block hours: you have confirmed ceremony bookings during this time range.');
     }
 
     // 2. Check existing exception overlap
@@ -172,7 +174,7 @@ export class AvailabilityService {
 
     const hasExceptionOverlap = await this.checkExceptionOverlap(profile.id, startAt, endAt);
     if (hasExceptionOverlap) {
-      throw new Error('An availability block already exists that overlaps with this time range.');
+      throw new AppError(409, 'An availability block already exists that overlaps with this time range.');
     }
 
     const [record] = await db

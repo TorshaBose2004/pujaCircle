@@ -8,6 +8,7 @@ export interface PujaCatalogEntry {
   steps: string[];
   // Static reference text this phase per TRD §4
   timingNote: string;
+  durationMinutes: number;
   coverImage: string;
   category: 'life-event' | 'dosha-nivaran' | 'festival' | 'business' | 'ancestral';
 }

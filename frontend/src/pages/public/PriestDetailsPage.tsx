@@ -92,15 +92,17 @@ export const PriestDetailsPage: React.FC = () => {
     loadPriestAndAddresses();
   }, [id, user]);
 
-  // Load generated slots whenever selectedDate or priest changes
+  // Load generated slots whenever selectedDate, priest, or selected ceremony duration changes
   useEffect(() => {
     async function loadSlots() {
       if (!id) return;
       setIsSlotsLoading(true);
       try {
+        const ceremonyDuration = selectedService?.durationMinutes || 120;
         const slots = await priestApi.getAvailableSlotsForDate(
           id,
           selectedDate,
+          ceremonyDuration,
         );
         setAvailableSlots(slots);
       } catch {
@@ -110,7 +112,7 @@ export const PriestDetailsPage: React.FC = () => {
       }
     }
     loadSlots();
-  }, [id, selectedDate]);
+  }, [id, selectedDate, selectedService?.durationMinutes]);
 
   const handleStartBooking = (service?: PriestService, slot?: CalculatedSlot) => {
     if (!isAuthenticated) {

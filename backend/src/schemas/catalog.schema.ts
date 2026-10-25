@@ -13,6 +13,7 @@ export const createCatalogEntrySchema = z.object({
   samagriList: z.array(z.string().trim().min(1)).min(1, 'At least one samagri item is required'),
   steps: z.array(z.string().trim().min(1)).min(1, 'At least one vidhi step is required'),
   timingNote: z.string().trim().min(2, 'Auspicious timing note is required').max(500),
+  durationMinutes: z.coerce.number().int().positive('Duration must be a positive number of minutes'),
   coverImage: z.string().trim().min(1, 'Ceremony cover picture is strictly required'),
   isActive: z.boolean().default(true),
 });

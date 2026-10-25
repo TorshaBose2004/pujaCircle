@@ -88,28 +88,10 @@ export class AuthService {
     const targetEmail = input.email.trim().toLowerCase();
 
     // 1. Sign in against Supabase Auth
-    let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: targetEmail,
       password: input.password,
     });
-
-    // Graceful case fallback for pujaCircle accounts
-    if (authError && targetEmail.toLowerCase().includes('@pujacircle.com')) {
-      const altPassword = input.password.includes('pujaCircle.com')
-        ? input.password.replace('pujaCircle.com', 'pujacircle.com')
-        : input.password.replace('pujacircle.com', 'pujaCircle.com');
-
-      if (altPassword !== input.password) {
-        const altAttempt = await supabase.auth.signInWithPassword({
-          email: targetEmail,
-          password: altPassword,
-        });
-        if (!altAttempt.error && altAttempt.data.user) {
-          authData = altAttempt.data;
-          authError = null;
-        }
-      }
-    }
 
     if (authError || !authData.user) {
       throw {
@@ -462,15 +444,11 @@ export class AuthService {
       .limit(1);
 
     if (!existingUser) {
-      // Check Supabase Auth as secondary check
-      const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-      const existsInSupabase = userList?.users?.some((u) => u.email?.toLowerCase() === cleanEmail);
-      if (!existsInSupabase) {
-        throw {
-          statusCode: 404,
-          message: 'No registered account found with this email address.',
-        };
-      }
+      // User not in our database — do not check Supabase auth provider
+      throw {
+        statusCode: 404,
+        message: 'No registered account found with this email address.',
+      };
     }
 
     const code = generateDynamicOtp(cleanEmail);

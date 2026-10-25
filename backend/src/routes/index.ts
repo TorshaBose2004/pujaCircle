@@ -13,6 +13,7 @@ import { bookingController } from '../controllers/booking.controller.js';
 import { mediaController } from '../controllers/media.controller.js';
 import { sendSuccess } from '../views/response.view.js';
 import { validate } from '../middlewares/validate.middleware.js';
+import { requireAuth } from '../middlewares/auth.middleware.js';
 import { ratingSchema } from '../schemas/booking.schema.js';
 
 const apiRouter = Router();
@@ -49,6 +50,6 @@ apiRouter.use('/bookings', bookingRoutes);
 apiRouter.use('/geo', geoRoutes);
 apiRouter.use('/rituals', ritualRoutes);
 apiRouter.use('/availability', availabilityRoutes);
-apiRouter.post('/ratings', validate(ratingSchema), bookingController.submitRating);
+apiRouter.post('/ratings', requireAuth, validate(ratingSchema), bookingController.submitRating);
 
 export const routes = apiRouter;

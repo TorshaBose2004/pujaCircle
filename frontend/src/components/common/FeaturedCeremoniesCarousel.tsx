@@ -9,6 +9,7 @@ import {
   BookOpen,
   Flame,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { PujaCatalogEntry } from "@/types/catalog.types";
 import { catalogApi } from "@/api/catalog.api";
@@ -227,15 +228,21 @@ export const FeaturedCeremoniesCarousel: React.FC = () => {
                     {puja.description}
                   </p>
 
-                  {/* Badges for Samagri & Steps */}
+                  {/* Badges for Duration, Samagri & Steps */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {puja.durationMinutes ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                        <Clock className="w-3 h-3 text-amber-700" />
+                        <span>{puja.durationMinutes} mins</span>
+                      </span>
+                    ) : null}
                     <span className="inline-flex items-center gap-1 text-[11px] text-stone-500 bg-stone-100 px-2 py-0.5 rounded font-medium">
                       <BookOpen className="w-3 h-3 text-amber-700" />
-                      <span>{puja.samagriList.length} Samagri Items</span>
+                      <span>{puja.samagriList.length} Items</span>
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] text-stone-500 bg-stone-100 px-2 py-0.5 rounded font-medium">
                       <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                      <span>{puja.steps.length} Vidhi Steps</span>
+                      <span>{puja.steps.length} Steps</span>
                     </span>
                   </div>
                 </div>

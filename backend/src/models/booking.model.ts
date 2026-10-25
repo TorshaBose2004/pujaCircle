@@ -15,6 +15,7 @@ export const bookingStatusEnum = pgEnum('booking_status', [
 
 export const paymentMethodEnum = pgEnum('payment_method', ['OFFLINE_CASH', 'CASH']);
 export const paymentStatusEnum = pgEnum('payment_status', ['PENDING', 'PAID_OFFLINE']);
+export const cancelledByEnum = pgEnum('cancelled_by', ['USER', 'PRIEST', 'ADMIN']);
 
 /**
  * [MODEL] Bookings Table
@@ -22,13 +23,12 @@ export const paymentStatusEnum = pgEnum('payment_status', ['PENDING', 'PAID_OFFL
  */
 export const bookings = pgTable('bookings', {
   id: uuid('id').defaultRandom().primaryKey(),
-  bookingReference: varchar('booking_reference', { length: 50 }).notNull(), // e.g. PC-2026-0812
+  bookingReference: varchar('booking_reference', { length: 50 }).notNull().unique(), // e.g. PC-2026-0812 — must be unique across all bookings
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   priestId: uuid('priest_id').notNull().references(() => priestProfiles.id, { onDelete: 'cascade' }),
   priestServiceId: uuid('priest_service_id').references(() => priestServices.id),
   pujaCatalogId: uuid('puja_catalog_id').references(() => pujaCatalog.id),
   addressId: uuid('address_id').references(() => addresses.id),
-  slotId: uuid('slot_id'),
   serviceName: varchar('service_name', { length: 255 }).default('Puja Ceremony').notNull(),
   servicePrice: integer('service_price').notNull(), // INR amount in rupees (₹)
   totalPrice: integer('total_price').notNull(), // INR amount in rupees (₹)
@@ -44,7 +44,7 @@ export const bookings = pgTable('bookings', {
   completionCode: varchar('completion_code', { length: 10 }),
   rejectionReason: text('rejection_reason'),
   cancellationReason: text('cancellation_reason'),
-  cancelledBy: varchar('cancelled_by', { length: 20 }), // 'USER' | 'PRIEST' | 'ADMIN'
+  cancelledBy: cancelledByEnum('cancelled_by'),
   cancelledAt: timestamp('cancelled_at'),
   completedAt: timestamp('completed_at'),
   rating: integer('rating'),
