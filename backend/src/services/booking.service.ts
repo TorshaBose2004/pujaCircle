@@ -1,3 +1,6 @@
+import { eq, and, or, desc } from 'drizzle-orm';
+import { db } from '../db/index.js';
+import { bookings, priestProfiles } from '../models/index.js';
 import { CreateBookingInput, RatingInput } from '../schemas/booking.schema.js';
 
 export interface BookingFilterOptions {
@@ -13,9 +16,70 @@ export class BookingService {
   /**
    * Query bookings with optional devotee and priest filters
    */
-  async getBookings(_filters: BookingFilterOptions): Promise<any[]> {
-    // TODO: [Teammate - Booking] Query bookings table joined with priest, user, catalog, and address records
-    return [];
+  async getBookings(filters: BookingFilterOptions): Promise<any[]> {
+    let resolvedPriestId = filters.priestId;
+    if (filters.priestId) {
+      const [profile] = await db
+        .select({ id: priestProfiles.id })
+        .from(priestProfiles)
+        .where(or(eq(priestProfiles.id, filters.priestId), eq(priestProfiles.userId, filters.priestId)))
+        .limit(1);
+      if (profile) {
+        resolvedPriestId = profile.id;
+      }
+    }
+
+    const conditions = [];
+    if (filters.userId) {
+      conditions.push(eq(bookings.userId, filters.userId));
+    }
+    if (resolvedPriestId) {
+      conditions.push(eq(bookings.priestId, resolvedPriestId));
+    }
+
+    const whereClause =
+      conditions.length === 0
+        ? undefined
+        : conditions.length === 1
+        ? conditions[0]
+        : and(...conditions);
+
+    const rawBookings = await db.query.bookings.findMany({
+      where: whereClause,
+      orderBy: [desc(bookings.createdAt)],
+      with: {
+        user: true,
+        priestProfile: {
+          with: {
+            user: true,
+          },
+        },
+        priestService: true,
+        catalog: true,
+        address: true,
+      },
+    });
+
+    return rawBookings.map((b) => ({
+      ...b,
+      priest: b.priestProfile
+        ? {
+            ...b.priestProfile,
+            displayName: b.priestProfile.user?.name || 'Assigned Purohit',
+            fullName: b.priestProfile.user?.name || 'Assigned Purohit',
+            phoneNumber: b.priestProfile.user?.phoneNumber,
+            email: b.priestProfile.user?.email,
+          }
+        : undefined,
+      ritual: b.catalog || undefined,
+      slot: {
+        startTime: b.startTime,
+        endTime: b.endTime,
+      },
+      venueAddressSnapshot: b.address || undefined,
+      userName: b.user?.name,
+      userPhone: b.user?.phoneNumber,
+    }));
   }
 
   /**
