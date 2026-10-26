@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { addresses, Address } from '../models/address.model.js';
 import { CreateAddressInput, UpdateAddressInput } from '../schemas/address.schema.js';
@@ -22,36 +22,94 @@ export class AddressService {
   /**
    * Add a new ceremonial address for a devotee
    */
-  async createAddress(_userId: string, _data: CreateAddressInput): Promise<any> {
-    // TODO: [Teammate - Address] Insert new address into addresses table, handling default flag unset on existing
-    return null;
+  async createAddress(userId: string, data: CreateAddressInput): Promise<Address> {
+    if (data.isDefault) {
+      await db
+        .update(addresses)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(eq(addresses.userId, userId));
+    }
+
+    const [newAddress] = await db
+      .insert(addresses)
+      .values({
+        userId,
+        ...data,
+      })
+      .returning();
+
+    return newAddress;
   }
 
   /**
    * Update an existing address
    */
   async updateAddress(
-    _addressId: string,
-    _userId: string,
-    _data: UpdateAddressInput
-  ): Promise<any> {
-    // TODO: [Teammate - Address] Update address in addresses table by id and userId
-    return null;
+    addressId: string,
+    userId: string,
+    data: UpdateAddressInput
+  ): Promise<Address> {
+    if (data.isDefault) {
+      await db
+        .update(addresses)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(eq(addresses.userId, userId));
+    }
+
+    const [updated] = await db
+      .update(addresses)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(addresses.id, addressId), eq(addresses.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw { statusCode: 404, message: 'Address not found or unauthorized.' };
+    }
+
+    return updated;
   }
 
   /**
    * Delete an address by ID
    */
-  async deleteAddress(_addressId: string, _userId: string): Promise<void> {
-    // TODO: [Teammate - Address] Delete address from addresses table by id and userId
+  async deleteAddress(addressId: string, userId: string): Promise<void> {
+    const [deleted] = await db
+      .delete(addresses)
+      .where(and(eq(addresses.id, addressId), eq(addresses.userId, userId)))
+      .returning();
+
+    if (!deleted) {
+      throw { statusCode: 404, message: 'Address not found or unauthorized.' };
+    }
   }
 
   /**
    * Set an address as the default ceremonial venue
    */
-  async setDefaultAddress(_addressId: string, _userId: string): Promise<any> {
-    // TODO: [Teammate - Address] Transaction: set isDefault = false for all user addresses, then set isDefault = true for addressId
-    return null;
+  async setDefaultAddress(addressId: string, userId: string): Promise<Address> {
+    return await db.transaction(async (tx) => {
+      // 1. Unset default for all addresses of this user
+      await tx
+        .update(addresses)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(eq(addresses.userId, userId));
+
+      // 2. Set isDefault = true for the target addressId
+      const [updated] = await tx
+        .update(addresses)
+        .set({ isDefault: true, updatedAt: new Date() })
+        .where(and(eq(addresses.id, addressId), eq(addresses.userId, userId)))
+        .returning();
+
+      if (!updated) {
+        throw { statusCode: 404, message: 'Address not found or unauthorized.' };
+      }
+
+      return updated;
+    });
   }
 }
 
