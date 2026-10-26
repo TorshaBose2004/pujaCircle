@@ -1,3 +1,6 @@
+import { eq, desc } from 'drizzle-orm';
+import { db } from '../db/index.js';
+import { addresses, Address } from '../models/address.model.js';
 import { CreateAddressInput, UpdateAddressInput } from '../schemas/address.schema.js';
 
 /**
@@ -8,9 +11,12 @@ export class AddressService {
   /**
    * Retrieve all saved addresses for a devotee
    */
-  async getAddresses(_userId: string): Promise<any[]> {
-    // TODO: [Teammate - Address] Query addresses table for user addresses ordered by isDefault DESC
-    return [];
+  async getAddresses(userId: string): Promise<Address[]> {
+    return await db
+      .select()
+      .from(addresses)
+      .where(eq(addresses.userId, userId))
+      .orderBy(desc(addresses.isDefault));
   }
 
   /**
