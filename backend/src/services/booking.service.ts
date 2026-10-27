@@ -2,6 +2,7 @@ import { eq, and, or, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { bookings, priestProfiles } from '../models/index.js';
 import { CreateBookingInput, RatingInput } from '../schemas/booking.schema.js';
+import { AppError } from '../utils/AppError.js';
 
 export interface BookingFilterOptions {
   userId?: string;
@@ -41,8 +42,8 @@ export class BookingService {
       conditions.length === 0
         ? undefined
         : conditions.length === 1
-        ? conditions[0]
-        : and(...conditions);
+          ? conditions[0]
+          : and(...conditions);
 
     const rawBookings = await db.query.bookings.findMany({
       where: whereClause,
@@ -64,12 +65,12 @@ export class BookingService {
       ...b,
       priest: b.priestProfile
         ? {
-            ...b.priestProfile,
-            displayName: b.priestProfile.user?.name || 'Assigned Purohit',
-            fullName: b.priestProfile.user?.name || 'Assigned Purohit',
-            phoneNumber: b.priestProfile.user?.phoneNumber,
-            email: b.priestProfile.user?.email,
-          }
+          ...b.priestProfile,
+          displayName: b.priestProfile.user?.name || 'Assigned Purohit',
+          fullName: b.priestProfile.user?.name || 'Assigned Purohit',
+          phoneNumber: b.priestProfile.user?.phoneNumber,
+          email: b.priestProfile.user?.email,
+        }
         : undefined,
       ritual: b.catalog || undefined,
       slot: {
@@ -85,9 +86,46 @@ export class BookingService {
   /**
    * Retrieve a single booking details by ID
    */
-  async getBookingById(_id: string): Promise<any> {
-    // TODO: [Teammate - Booking] Query single booking by id with full joined relations
-    return null;
+  async getBookingById(id: string): Promise<any> {
+    const booking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, id),
+      with: {
+        user: true,
+        priestProfile: {
+          with: {
+            user: true,
+          },
+        },
+        priestService: true,
+        catalog: true,
+        address: true,
+      },
+    });
+
+    if (!booking) {
+      throw new AppError(404, `Booking with ID ${id} not found.`);
+    }
+
+    return {
+      ...booking,
+      priest: booking.priestProfile
+        ? {
+            ...booking.priestProfile,
+            displayName: booking.priestProfile.user?.name || 'Assigned Purohit',
+            fullName: booking.priestProfile.user?.name || 'Assigned Purohit',
+            phoneNumber: booking.priestProfile.user?.phoneNumber,
+            email: booking.priestProfile.user?.email,
+          }
+        : undefined,
+      ritual: booking.catalog || undefined,
+      slot: {
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+      },
+      venueAddressSnapshot: booking.address || undefined,
+      userName: booking.user?.name,
+      userPhone: booking.user?.phoneNumber,
+    };
   }
 
   /**
