@@ -23,8 +23,9 @@ export const createBookingSchema = z.object({
 
 export const ratingSchema = z.object({
   bookingId: z.string().uuid('Invalid Booking ID format').optional(),
-  rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5').max(5, 'Rating must be between 1 and 5'),
-  review: z.string().trim().max(1000, 'Review cannot exceed 1000 characters').optional(),
+  rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5').max(5, 'Rating must be between 1 and 5').optional(),
+  review: z.string().trim().max(2000, 'Review cannot exceed 2000 characters').optional().nullable(),
+  userId: z.string().optional(),
 });
 
 export const bookingActionReasonSchema = z.object({

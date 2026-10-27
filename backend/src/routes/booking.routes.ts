@@ -19,6 +19,8 @@ router.post('/:id/accept', requireAuth, validate(uuidParamSchema, 'params'), boo
 router.post('/:id/reject', requireAuth, validate(uuidParamSchema, 'params'), validate(bookingActionReasonSchema), bookingController.rejectBooking);
 router.post('/:id/cancel', requireAuth, validate(uuidParamSchema, 'params'), validate(bookingActionReasonSchema), bookingController.cancelBooking);
 router.post('/:id/complete', requireAuth, validate(uuidParamSchema, 'params'), bookingController.completeBooking);
+router.post('/:id/rating', requireAuth, validate(uuidParamSchema, 'params'), bookingController.submitRating);
+router.post('/:id/ratings', requireAuth, validate(uuidParamSchema, 'params'), bookingController.submitRating);
 
 export const bookingRoutes = router;
 

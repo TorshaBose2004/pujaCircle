@@ -32,13 +32,11 @@ export const rejectBookingSchema = z
   })
   .strict();
 
-export const ratingSchema = z
-  .object({
-    bookingId: z.string().trim().min(1, 'Booking ID is required').max(100),
-    rating: z.coerce.number().int('Rating must be an integer').min(1, 'Please give at least 1 star').max(5, 'Maximum rating is 5 stars'),
-    review: z.string().trim().max(500, 'Review cannot exceed 500 characters').optional().or(z.literal('')),
-  })
-  .strict();
+export const ratingSchema = z.object({
+  bookingId: z.string().trim().max(150).optional().or(z.literal('')),
+  rating: z.coerce.number().int('Rating must be an integer').min(1, 'Please give at least 1 star').max(5, 'Maximum rating is 5 stars').optional().default(5),
+  review: z.string().trim().max(2000, 'Review cannot exceed 2000 characters').optional().or(z.literal('')),
+});
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type CancelBookingInput = z.infer<typeof cancelBookingSchema>;

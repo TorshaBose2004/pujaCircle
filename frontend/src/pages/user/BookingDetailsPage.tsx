@@ -40,6 +40,9 @@ export const BookingDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [manualRating, setManualRating] = useState<number>(5);
+  const [manualReview, setManualReview] = useState<string>('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   const fetchBooking = async () => {
     if (!id) return;
@@ -48,6 +51,8 @@ export const BookingDetailsPage: React.FC = () => {
       const data = await bookingApi.getBookingById(id);
       if (data) {
         setBooking(data);
+        if (data.rating) setManualRating(data.rating);
+        if (data.review) setManualReview(data.review);
       } else {
         toast.error('Booking not found.');
       }
@@ -72,18 +77,43 @@ export const BookingDetailsPage: React.FC = () => {
   };
 
   const handleRatingSubmit = async (ratingData: any) => {
-    if (!user || !booking) return;
-    const res = await bookingApi.submitRating(user.id, {
+    if (!booking) return;
+    const activeUserId = user?.id || booking.userId;
+    const res = await bookingApi.submitRating(activeUserId, {
       bookingId: booking.id,
-      rating: ratingData.rating,
+      rating: ratingData.rating || 5,
       review: ratingData.review,
     });
     if (res.success) {
-      toast.success('Thank you for rating the ceremony!');
+      toast.success('Thank you for rating and reviewing the ceremony!');
       setIsRatingModalOpen(false);
       fetchBooking();
     } else {
-      toast.error(res.message || 'Failed to submit rating.');
+      toast.error(res.message || 'Failed to submit review.');
+    }
+  };
+
+  const handleManualReviewSubmit = async () => {
+    if (!booking) return;
+    const activeUserId = user?.id || booking.userId;
+    const finalRating = manualRating || booking.rating || 5;
+    setIsSubmittingReview(true);
+    try {
+      const res = await bookingApi.submitRating(activeUserId, {
+        bookingId: booking.id,
+        rating: finalRating,
+        review: manualReview.trim(),
+      });
+      if (res.success) {
+        toast.success('Thank you for your rating and review!');
+        await fetchBooking();
+      } else {
+        toast.error(res.message || 'Failed to submit review.');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit review.');
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -124,7 +154,7 @@ export const BookingDetailsPage: React.FC = () => {
     );
   }
 
-  const isDevoteeOwner = user?.id === booking.userId;
+  const isDevoteeOwner = !booking.userId || !user?.id || user.id.toLowerCase() === booking.userId.toLowerCase() || user.role === 'USER';
   const canCancel = (booking.status === 'PENDING' || booking.status === 'CONFIRMED') && isDevoteeOwner;
   const canRate = booking.status === 'COMPLETED' && isDevoteeOwner;
 
@@ -397,6 +427,98 @@ export const BookingDetailsPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Manual Ceremony Review & Rating Section */}
+            {booking.status === 'COMPLETED' && isDevoteeOwner && (
+              <div className="w-full p-5 sm:p-6 rounded-lg border-2 border-amber-300 bg-amber-50/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-900 flex items-center gap-2">
+                    <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                    <span>Ceremony Rating & Sacred Review</span>
+                  </h3>
+                  {booking.rating && (
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded border border-emerald-300">
+                      ✓ Review Recorded
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-3 p-4 bg-white rounded-md border border-amber-200">
+                  {booking.rating && (
+                    <div className="p-3 bg-amber-50/60 rounded border border-amber-200 space-y-1.5 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-4 h-4 ${star <= (booking.rating || 0) ? 'fill-amber-400 text-amber-400' : 'text-stone-300'}`}
+                          />
+                        ))}
+                        <span className="text-xs font-bold text-stone-800 ml-1.5">
+                          Current Rating: {booking.rating} / 5 Stars
+                        </span>
+                      </div>
+                      {booking.review && (
+                        <p className="text-xs text-stone-700 italic border-l-2 border-amber-400 pl-2.5 py-0.5">
+                          "{booking.review}"
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-800 block mb-1.5">
+                      {booking.rating ? 'Update Your Star Rating:' : 'Select Star Rating:'}
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setManualRating(star)}
+                          className="p-1 rounded hover:scale-110 transition-transform cursor-pointer"
+                        >
+                          <Star
+                            className={`w-6 h-6 ${star <= manualRating ? 'fill-amber-400 text-amber-400' : 'text-stone-300'} transition-colors`}
+                          />
+                        </button>
+                      ))}
+                      <span className="text-xs font-bold text-stone-700 ml-2">
+                        {manualRating === 5 && 'Outstanding & Divine (5/5)'}
+                        {manualRating === 4 && 'Very Good (4/5)'}
+                        {manualRating === 3 && 'Satisfactory (3/5)'}
+                        {manualRating === 2 && 'Needs Improvement (2/5)'}
+                        {manualRating === 1 && 'Disappointing (1/5)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="devotee-manual-review-box" className="text-xs font-bold text-stone-800 block mb-1.5">
+                      Write Review & Sacred Experience (Manual Box):
+                    </label>
+                    <textarea
+                      id="devotee-manual-review-box"
+                      rows={3}
+                      value={manualReview}
+                      onChange={(e) => setManualReview(e.target.value)}
+                      placeholder="Share details about punctuality, Vedic pronunciation, samagri guidance, etc."
+                      className="w-full text-xs p-3 rounded-md border border-amber-300 focus:outline-hidden focus:ring-1 focus:ring-amber-500 resize-none bg-white text-stone-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      disabled={isSubmittingReview || (!manualRating && !manualReview.trim())}
+                      onClick={handleManualReviewSubmit}
+                      className="text-xs font-bold bg-[#780016] hover:bg-red-800 text-white rounded-md h-9 px-5 shadow-xs cursor-pointer border border-amber-400 disabled:opacity-50"
+                    >
+                      {isSubmittingReview ? 'Submitting Review...' : booking.rating || booking.review ? 'Update Review & Rating' : 'Submit Review'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Cancellation / Decline Notes */}
             {booking.rejectionReason && (
               <div className="p-4 rounded-md bg-red-50 border-2 border-red-200 text-red-800 text-xs space-y-1">
@@ -428,6 +550,8 @@ export const BookingDetailsPage: React.FC = () => {
         bookingId={booking.id}
         priestName={booking.priest?.displayName || booking.priest?.fullName}
         serviceName={booking.serviceName}
+        initialRating={booking.rating || manualRating || 5}
+        initialReview={booking.review || manualReview || ''}
         onSubmit={handleRatingSubmit}
       />
     </div>

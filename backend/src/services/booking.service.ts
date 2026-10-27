@@ -550,11 +550,13 @@ export class BookingService {
 
     // 4. Record review rating on booking
     const now = new Date();
+    const finalRating = data.rating ?? booking.rating ?? 5;
+    const finalReview = data.review !== undefined ? (data.review ? data.review.trim() : null) : booking.review;
     await db
       .update(bookings)
       .set({
-        rating: data.rating,
-        review: data.review ? data.review.trim() : null,
+        rating: finalRating,
+        review: finalReview,
         updatedAt: now,
       })
       .where(eq(bookings.id, data.bookingId));

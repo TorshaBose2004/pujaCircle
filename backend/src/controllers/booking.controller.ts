@@ -142,7 +142,8 @@ export class BookingController {
         return;
       }
       const activeUserId = req.user.id;
-      const result = await bookingService.submitRating(activeUserId, req.body);
+      const bookingId = req.body?.bookingId || req.params?.id;
+      const result = await bookingService.submitRating(activeUserId, { ...req.body, bookingId });
       sendSuccess(res, 'Devotee rating submitted with blessings.', result, 201);
     } catch (error) {
       next(error);
