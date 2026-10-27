@@ -97,6 +97,7 @@ export interface Rating {
 
 export interface SubmitRatingRequest {
   bookingId: string;
-  rating: number;
+  rating?: number;
   review?: string;
 }
+

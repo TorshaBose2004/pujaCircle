@@ -1,7 +1,4 @@
-import React, { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { ratingSchema, RatingInput } from "@/schemas/booking.schema";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,12 +12,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Star } from "lucide-react";
 
+import { RatingInput } from "@/schemas/booking.schema";
+
 interface RatingModalProps {
   isOpen: boolean;
   onClose: () => void;
   bookingId: string;
   priestName?: string;
   serviceName?: string;
+  initialRating?: number;
+  initialReview?: string;
   onSubmit: (data: RatingInput) => Promise<void>;
   isLoading?: boolean;
 }
@@ -31,36 +32,42 @@ export const RatingModal: React.FC<RatingModalProps> = ({
   bookingId,
   priestName = "Pandit Ji",
   serviceName = "Ceremony",
+  initialRating = 5,
+  initialReview = "",
   onSubmit,
   isLoading = false,
 }) => {
-  const [selectedRating, setSelectedRating] = useState<number>(5);
+  const [selectedRating, setSelectedRating] = useState<number>(initialRating || 5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [review, setReview] = useState<string>(initialReview || "");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm<RatingInput>({
-    resolver: zodResolver(ratingSchema),
-    defaultValues: {
-      bookingId,
-      rating: 5,
-      review: "",
-    },
-  });
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedRating(initialRating || 5);
+      setHoverRating(null);
+      setReview(initialReview || "");
+    }
+  }, [isOpen, bookingId, initialRating, initialReview]);
 
   const handleStarClick = (score: number) => {
     setSelectedRating(score);
-    setValue("rating", score, { shouldValidate: true });
   };
 
-  const handleFormSubmit = async (data: RatingInput) => {
-    await onSubmit({ ...data, bookingId });
-    reset();
-    onClose();
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingId) return;
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        bookingId,
+        rating: selectedRating || 5,
+        review: review.trim(),
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -77,7 +84,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
         </DialogHeader>
 
         <form
-          onSubmit={handleSubmit(handleFormSubmit)}
+          onSubmit={handleFormSubmit}
           className="space-y-4 pt-2 text-left"
         >
           {/* Star Rating Input */}
@@ -93,7 +100,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
                     onClick={() => handleStarClick(star)}
                     onMouseEnter={() => setHoverRating(star)}
                     onMouseLeave={() => setHoverRating(null)}
-                    className="p-1 rounded-md hover:scale-110 transition-transform focus:outline-hidden"
+                    className="p-1 rounded-md hover:scale-110 transition-transform focus:outline-hidden cursor-pointer"
                     aria-label={`${star} star`}
                   >
                     <Star
@@ -116,22 +123,19 @@ export const RatingModal: React.FC<RatingModalProps> = ({
             </span>
           </div>
 
-          {/* Optional Review */}
+          {/* Manual Review Box */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">
-              Review & Feedback (Optional)
+            <Label htmlFor="manual-review-input" className="text-xs font-medium">
+              Review & Feedback (Write your experience manually)
             </Label>
             <Textarea
+              id="manual-review-input"
               placeholder="Share details about punctuality, Vedic pronunciation, samagri guidance, etc."
-              rows={3}
-              {...register("review")}
+              rows={4}
+              value={review}
+              onChange={(e) => setReview(e.target.value)}
               className="text-xs resize-none"
             />
-            {errors.review && (
-              <p className="text-[11px] text-destructive">
-                {errors.review.message}
-              </p>
-            )}
           </div>
 
           <DialogFooter className="pt-2 gap-2 sm:justify-center">
@@ -140,6 +144,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
               variant="outline"
               size="sm"
               onClick={onClose}
+              disabled={isLoading || isSubmitting}
               className="text-xs h-9 px-4 rounded-md border-2 border-amber-300 text-stone-800 hover:bg-amber-50 cursor-pointer"
             >
               Cancel
@@ -147,10 +152,10 @@ export const RatingModal: React.FC<RatingModalProps> = ({
             <Button
               type="submit"
               size="sm"
-              disabled={isLoading || !selectedRating}
+              disabled={isLoading || isSubmitting}
               className="text-xs font-bold bg-[#780016] hover:bg-[#600012] text-white h-9 px-6 rounded-md shadow-xs border border-amber-400 cursor-pointer disabled:opacity-50"
             >
-              {isLoading ? "Submitting..." : "Submit Rating"}
+              {isLoading || isSubmitting ? "Submitting..." : "Submit Review & Rating"}
             </Button>
           </DialogFooter>
         </form>
@@ -158,3 +163,4 @@ export const RatingModal: React.FC<RatingModalProps> = ({
     </Dialog>
   );
 };
+

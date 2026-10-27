@@ -1,4 +1,5 @@
 import { eq, or } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { supabase, supabaseAdmin } from '../config/supabase.js';
 import { db } from '../db/index.js';
@@ -21,6 +22,18 @@ export interface AuthResult {
   user: UserViewModel;
   token?: string;
 }
+
+const generateAppToken = (user: { id: string; email?: string | null; role: string }): string => {
+  return jwt.sign(
+    {
+      userId: user.id,
+      email: user.email || '',
+      role: user.role,
+    },
+    env.JWT_SECRET,
+    { expiresIn: (env.JWT_EXPIRES_IN as any) || '7d' }
+  );
+};
 
 interface StoredOtp {
   code: string;
@@ -122,7 +135,7 @@ export class AuthService {
 
       return {
         user: toUserView(newUser),
-        token: authData.session?.access_token,
+        token: generateAppToken(newUser) || authData.session?.access_token,
       };
     }
 
@@ -136,7 +149,7 @@ export class AuthService {
 
     return {
       user: toUserView(userRecord),
-      token: authData.session?.access_token,
+      token: generateAppToken(userRecord) || authData.session?.access_token,
     };
   }
 
@@ -217,7 +230,7 @@ export class AuthService {
 
     return {
       user: toUserView(createdUser),
-      token: sessionData.session?.access_token,
+      token: generateAppToken(createdUser) || sessionData?.session?.access_token,
     };
   }
 
@@ -298,7 +311,7 @@ export class AuthService {
 
     return {
       user: toUserView(createdUser),
-      token: sessionData.session?.access_token,
+      token: generateAppToken(createdUser) || sessionData?.session?.access_token,
     };
   }
 

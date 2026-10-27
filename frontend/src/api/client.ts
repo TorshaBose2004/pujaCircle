@@ -19,13 +19,17 @@ export const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (requestConfig) => {
     try {
+      let token: string | null = null;
       const stored = localStorage.getItem('pujacircle-auth-storage');
       if (stored) {
         const parsed = JSON.parse(stored);
-        const token = parsed?.state?.token || localStorage.getItem('pujacircle_token');
-        if (token && requestConfig.headers) {
-          requestConfig.headers.Authorization = `Bearer ${token}`;
-        }
+        token = parsed?.state?.token || null;
+      }
+      if (!token) {
+        token = localStorage.getItem('pujacircle_token');
+      }
+      if (token && requestConfig.headers) {
+        requestConfig.headers.Authorization = `Bearer ${token}`;
       }
     } catch {
       // Ignore parse failure

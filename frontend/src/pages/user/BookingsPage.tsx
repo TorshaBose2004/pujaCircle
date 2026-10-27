@@ -69,18 +69,19 @@ export const BookingsPage: React.FC = () => {
   };
 
   const handleRatingSubmit = async (data: RatingInput) => {
-    if (!user || !bookingToRate) return;
-    const res = await bookingApi.submitRating(user.id, {
+    if (!bookingToRate) return;
+    const activeUserId = user?.id || bookingToRate.userId;
+    const res = await bookingApi.submitRating(activeUserId, {
       bookingId: bookingToRate.id,
-      rating: data.rating,
+      rating: data.rating || 5,
       review: data.review,
     });
     if (res.success) {
-      toast.success('Thank you for rating your Priest!');
+      toast.success('Thank you for your rating and review!');
       setRatingModalOpen(false);
       loadBookings();
     } else {
-      toast.error(res.message || 'Failed to submit rating.');
+      toast.error(res.message || 'Failed to submit review.');
     }
   };
 
@@ -416,6 +417,8 @@ export const BookingsPage: React.FC = () => {
         bookingId={bookingToRate?.id || ''}
         priestName={bookingToRate?.priest?.displayName || bookingToRate?.priest?.fullName}
         serviceName={bookingToRate?.serviceName}
+        initialRating={bookingToRate?.rating || 5}
+        initialReview={bookingToRate?.review || ''}
         onSubmit={handleRatingSubmit}
       />
     </div>
